@@ -17,11 +17,18 @@ const generateAccessToken = (user) => {
 };
 
 
-const verifyAccessToken = (token) => {
+const generateRefreshToken = (user) => {
 
-    return jwt.verify(
-        token,
-        process.env.JWT_SECRET
+    return jwt.sign(
+        {
+            id: user._id
+        },
+
+        process.env.JWT_REFRESH_SECRET,
+
+        {
+            expiresIn: "7d"
+        }
     );
 
 };
@@ -29,5 +36,5 @@ const verifyAccessToken = (token) => {
 
 module.exports = {
     generateAccessToken,
-    verifyAccessToken
+    generateRefreshToken
 };

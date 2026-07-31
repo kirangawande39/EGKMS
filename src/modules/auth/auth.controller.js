@@ -1,5 +1,7 @@
-const { generateAccessToken } = require("../../utils/jwt");
+const { generateAccessToken ,generateRefreshToken } = require("../../utils/jwt");
 const authService = require("./auth.service");
+const { hashToken } = require("../../utils/hash");
+        
 
 
 const register = async (req, res) => {
@@ -28,29 +30,70 @@ const register = async (req, res) => {
 };
 
 
-const login = async (req, res) => {
-     console.log("login route is called")
+
+
+
+
+const login = async (req, res, next) => {
+
     try {
 
         const user = req.user;
-        const token = generateAccessToken(user);
+
+
+        const accessToken = generateAccessToken(user);
+
+        const refreshToken = generateRefreshToken(user);
+
+
+        const refreshTokenHash = await hashToken(refreshToken);
+
+
+        await User.findByIdAndUpdate(
+            user._id,
+            {
+                refreshTokenHash,
+                lastLogin: new Date()
+            }
+        );
 
         res.cookie(
             "accessToken",
-            token,
+            accessToken,
             {
                 httpOnly: true,
-                secure: false,
-                sameSite: "strict"
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 15 * 60 * 1000 // 15 min
             }
         );
 
 
-        res.status(200).json({
+        // Refresh Token Cookie
+        res.cookie(
+            "refreshToken",
+            refreshToken,
+            {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            }
+        );
+
+
+        return res.status(200).json({
 
             success: true,
+
             message: "Login successful",
-            user
+
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
 
         });
 
@@ -58,12 +101,58 @@ const login = async (req, res) => {
     }
     catch (error) {
 
-        res.status(500).json({
+        next(error);
 
-            success: false,
-            message: error.message
+    }
+
+};
+
+
+
+
+
+const sendEmailOTP = async (req, res, next) => {
+
+    try {
+
+        const { email } = req.body;
+
+        const result = await authService.sendEmailOTP(email);
+
+        return res.status(200).json({
+
+            success: true,
+
+            message: result.message
 
         });
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
+
+
+const verifyEmailOTP = async (req, res, next) => {
+
+    try {
+
+        const { email, otp } = req.body;
+
+        const result = await authService.verifyEmailOTP(email, otp);
+
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+
+    } catch (error) {
+
+        next(error);
 
     }
 
@@ -71,5 +160,5 @@ const login = async (req, res) => {
 
 
 module.exports = {
-    register, login
+    register, login ,verifyEmailOTP , sendEmailOTP
 };

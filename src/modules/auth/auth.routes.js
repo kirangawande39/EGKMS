@@ -1,30 +1,71 @@
 const router = require("express").Router();
 const passport = require("passport");
 
-const validate = require('../../middleware/validate.middleware')
-const { createUserValidator } = require('../auth/auth.validator')
+
+const validate = require("../../middleware/validate.middleware");
+
+
+
+const {
+    createUserValidator,
+    loginValidator,
+    sendEmailOTPValidator,
+    verifyEmailOTPValidator
+
+} = require("./auth.validator");
+
+
+const {
+    loginLimiter,
+    registerLimiter,
+    verifyEmailOTPLimiter,
+    sendEmailOTPLimiter
+
+} = require("../../middleware/rateLimiter.middleware");
+
 
 const authController = require("./auth.controller");
 
-const { register } = require('./auth.controller')
 
 
-
-router.post("/login",
-
-    passport.authenticate(
-        "local",
-        {
-            session:false
-        }
-    ),
-
-    authController.login
+router.post(
+    "/send-email-otp",
+    sendEmailOTPLimiter,
+    validate(sendEmailOTPValidator),
+    authController.sendEmailOTP
 );
 
 
-router.post('/register', validate(createUserValidator) , register);
 
+router.post(
+    "/verify-email-otp",
+    verifyEmailOTPLimiter,
+    validate(verifyEmailOTPValidator),
+    authController.verifyEmailOTP
+);
+
+
+
+router.post(
+    "/register",
+    registerLimiter,
+    validate(createUserValidator),
+    authController.register
+);
+
+
+router.post(
+    "/login",
+    loginLimiter,
+    validate(loginValidator),
+    passport.authenticate(
+        "local",
+        {
+            session: false
+        }
+    ),
+    authController.login
+);
 
 
 module.exports = router;
