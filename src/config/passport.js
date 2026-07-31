@@ -4,6 +4,8 @@ const LocalStrategy = require("passport-local").Strategy;
 const User = require("../modules/auth/auth.model");
 const bcrypt = require("bcrypt");
 
+const ApiError = require("../utils/ApiError");
+
 
 passport.use(
     new LocalStrategy(
@@ -17,17 +19,22 @@ passport.use(
 
                 const user = await User.findOne({ email }).select("+password");
 
-                console.log("Email:", email);
-                console.log("Password from request:", password);
-                console.log("User:", user);
-
-                console.log("User Password:", user?.password);
-
 
                 if (!user) {
+                    return done(
+                        new ApiError(
+                            404,
+                            "User not found"
+                        )
+                    );
+                }
+
+                if (!user.isEmailVerified) {
+
                     return done(null, false, {
-                        message: "User not found"
+                        message: "Please verify your email before logging in."
                     });
+
                 }
 
 
@@ -38,20 +45,31 @@ passport.use(
 
 
                 if (!isMatch) {
-                    return done(null, false, {
-                        message: "Invalid password"
-                    });
+                    return done(
+                        new ApiError(
+                            401,
+                            "Invalid email or password"
+                        )
+                    );
                 }
 
 
                 return done(null, user);
 
-            }
-            catch (error) {
-                return done(error);
+            } catch (error) {
+
+                return done(
+                    new ApiError(
+                        500,
+                        error.message
+                    )
+                );
+
             }
 
-        }));
+        }
+    )
+);
 
 
 module.exports = passport;

@@ -1,11 +1,14 @@
 # DMS Backend API Documentation
 
-## Project
+# Project
 
 Document Management System (DMS)
 
-Current Status:
-Authentication module is under development.
+## Current Status
+
+Authentication Module Completed.
+
+Employee Management Module Base Completed.
 
 ---
 
@@ -19,108 +22,211 @@ http://localhost:5000/api/v1
 
 ---
 
-# Authentication
+# Backend Architecture
 
-## Authentication Type
-
-The application uses:
-
-- Passport.js (Local Strategy)
-- JWT (JSON Web Token)
-- HttpOnly Cookies
-
----
-
-## Login Flow
-
-1. User sends email and password.
-2. Passport Local Strategy verifies the credentials.
-3. If credentials are valid:
-   - Access Token is generated.
-   - Refresh Token is generated.
-4. Tokens are stored in HttpOnly Cookies.
-5. User is authenticated successfully.
-
----
-
-## Token Storage
-
-Authentication tokens are stored in browser cookies.
-
-Cookie Names:
-
+Application follows modular architecture:
 
 ```
-accessToken
-refreshToken
-```
-
-Tokens are **NOT** stored in:
-
-- Local Storage
-- Session Storage
-- Authorization Header
-
----
-
-## Cookie Configuration
-
-```
-HttpOnly : true
-Secure    : true (Production)
-SameSite  : Strict
-```
-
-### Why HttpOnly Cookies?
-
-- More secure than Local Storage.
-- JavaScript cannot access the token.
-- Helps protect against XSS attacks.
-
----
-
-## Frontend Configuration
-
-When calling authenticated APIs, frontend must enable cookies.
-
-Example (Axios)
-
-```javascript
-axios.create({
-    baseURL: "http://localhost:5000/api/v1",
-    withCredentials: true
-});
+Request
+   |
+   ↓
+Route
+   |
+   ↓
+Validator
+   |
+   ↓
+Controller
+   |
+   ↓
+Service
+   |
+   ↓
+Model
+   |
+   ↓
+Database
 ```
 
 ---
 
-# Response Format
+# Authentication Stack
 
-## Success Response
+Application uses:
+
+* Passport.js (Local Strategy)
+* JWT Authentication
+* HttpOnly Cookies
+* Email OTP Verification
+* bcrypt Password Hashing
+* express-rate-limit
+
+---
+
+# Authentication Flow
+
+## Company DMS Registration Flow
+
+System supports company controlled registration.
+
+```
+Admin creates Employee
+        |
+        ↓
+Employee email stored in Employee Collection
+        |
+        ↓
+Employee enters email
+        |
+        ↓
+System checks company email
+        |
+        ↓
+Email OTP Verification
+        |
+        ↓
+Create User Account
+        |
+        ↓
+Login
+```
+
+---
+
+# Employee Collection vs User Collection
+
+## Employee Collection
+
+Purpose:
+
+Stores company approved employees.
+
+Example:
 
 ```json
 {
-    "success": true,
-    "message": "Operation completed successfully",
-    "data": {}
+    "name":"Kiran",
+    "email":"kiran@company.com",
+    "role":"employee",
+    "department":"IT",
+    "isRegistered":false
 }
 ```
 
-## Error Response
+Contains:
+
+* Name
+* Email
+* Role
+* Department
+* Registration Status
+
+Does NOT contain:
+
+* Password
+* Authentication tokens
+
+---
+
+## User Collection
+
+Purpose:
+
+Stores login accounts.
+
+Example:
 
 ```json
 {
-    "success": false,
-    "message": "Error message",
-    "errors": []
+    "name":"Kiran",
+    "email":"kiran@company.com",
+    "password":"hashed_password",
+    "role":"employee",
+    "isEmailVerified":true
 }
+```
+
+Contains:
+
+* Login credentials
+* Password hash
+* User role
+* Authentication status
+
+---
+
+# Email OTP Verification
+
+## Send Email OTP
+
+### Endpoint
+
+```
+POST /auth/send-email-otp
+```
+
+### Description
+
+Sends a 6 digit OTP to verify email.
+
+### Request
+
+```json
+{
+    "email":"kiran@company.com"
+}
+```
+
+### Flow
+
+```
+Request
+ ↓
+Validate Email
+ ↓
+Generate OTP
+ ↓
+Save OTP in Database
+ ↓
+Send Email
 ```
 
 ---
 
-# Authentication APIs
+# Verify Email OTP
 
-## Register User
+### Endpoint
+
+```
+POST /auth/verify-email-otp
+```
+
+### Request
+
+```json
+{
+    "email":"kiran@company.com",
+    "otp":"123456"
+}
+```
+
+### Process
+
+```
+Find OTP
+ ↓
+Check OTP
+ ↓
+Check Expiry
+ ↓
+Mark Verified
+ ↓
+Delete OTP
+```
+
+---
+
+# Register User
 
 ### Endpoint
 
@@ -130,72 +236,323 @@ POST /auth/register
 
 ### Description
 
-Creates a new user account.
+Creates user account after email verification.
 
-### Request Body
+---
 
-```json
-{
-    "name": "Kiran",
-    "email": "kiran@gmail.com",
-    "password": "12345678",
-    "role": "employee"
-}
+## Register Flow
+
 ```
-
-### Success Response
-
-```json
-{
-    "success": true,
-    "message": "User registered successfully",
-    "data": {}
-}
+Register Request
+        |
+        ↓
+Check Employee Email
+        |
+        ↓
+Check OTP Verification
+        |
+        ↓
+Check Existing User
+        |
+        ↓
+Hash Password
+        |
+        ↓
+Create User
+        |
+        ↓
+Update Employee isRegistered=true
 ```
 
 ---
 
-## Login User
+## Request Body
 
-### Endpoint
+```json
+{
+    "name":"Kiran",
+    "email":"kiran@company.com",
+    "password":"Password@123"
+}
+```
+
+Note:
+
+Role is NOT accepted from frontend.
+
+Role comes from Employee Collection.
+
+---
+
+# Login User
+
+## Endpoint
 
 ```
 POST /auth/login
 ```
 
-### Description
+---
 
-Authenticates the user using Passport Local Strategy.
-
-### Request Body
-
-```json
-{
-    "email": "kiran@gmail.com",
-    "password": "12345678"
-}
-```
-
-### Success Response
-
-```json
-{
-    "success": true,
-    "message": "Login successful",
-    "user": {}
-}
-```
-
-### Cookies Returned
+## Login Flow
 
 ```
-accessToken
-refreshToken
+Login Request
+        |
+        ↓
+Passport Local Strategy
+        |
+        ↓
+Find User
+        |
+        ↓
+Compare Password
+        |
+        ↓
+Check Email Verification
+        |
+        ↓
+Generate Access Token
+        |
+        ↓
+Generate Refresh Token
+        |
+        ↓
+Store Cookies
 ```
 
 ---
 
-# Project Structure (Current)
+# Token Management
+
+## Access Token
+
+Purpose:
+
+* Authenticate protected APIs
+* Role authorization
+
+Payload:
+
+```json
+{
+    "id":"userId",
+    "role":"admin"
+}
+```
+
+Storage:
+
+```
+HttpOnly Cookie
+```
+
+Cookie:
+
+```
+accessToken
+```
+
+Expiry:
+
+```
+15 Minutes
+```
+
+---
+
+## Refresh Token
+
+Purpose:
+
+* Create new access tokens
+* Maintain session
+
+Payload:
+
+```json
+{
+    "id":"userId"
+}
+```
+
+Storage:
+
+```
+HttpOnly Cookie
+
++
+
+Hashed Token in Database
+```
+
+Cookie:
+
+```
+refreshToken
+```
+
+Expiry:
+
+```
+7 Days
+```
+
+---
+
+# Cookie Configuration
+
+```
+HttpOnly:true
+
+Secure:true (Production)
+
+SameSite:Strict
+```
+
+---
+
+# Employee Management Module
+
+## Purpose
+
+Manage company employees before account creation.
+
+---
+
+# Create Employee
+
+Only Admin can create employees.
+
+Endpoint:
+
+```
+POST /employee
+```
+
+Flow:
+
+```
+Admin Request
+        |
+        ↓
+Authentication Middleware
+        |
+        ↓
+Role Check
+        |
+        ↓
+Validator
+        |
+        ↓
+Create Employee
+```
+
+---
+
+Request:
+
+```json
+{
+    "name":"Rahul",
+    "email":"rahul@company.com",
+    "role":"manager",
+    "department":"IT"
+}
+```
+
+---
+
+Employee Roles:
+
+```
+admin
+manager
+employee
+```
+
+---
+
+# Role Hierarchy
+
+```
+Admin
+
+ |
+ |-- Create Employee
+ |-- Create Manager
+ |-- Manage System
+
+
+Manager
+
+ |
+ |-- Manage Team
+ |-- Approve Documents
+
+
+Employee
+
+ |
+ |-- Upload Documents
+ |-- Access Allowed Documents
+```
+
+---
+
+# Rate Limiting
+
+Authentication APIs protected using express-rate-limit.
+
+## Register
+
+```
+5 requests / 15 minutes
+```
+
+## Login
+
+```
+5 requests / 5 minutes
+```
+
+## Send OTP
+
+```
+3 requests / 5 minutes
+```
+
+## Verify OTP
+
+```
+10 requests / 10 minutes
+```
+
+---
+
+# Error Handling
+
+Global error middleware handles:
+
+* Validation Errors
+* Authentication Errors
+* Authorization Errors
+* Duplicate Data Errors
+* Server Errors
+
+Response:
+
+```json
+{
+    "success":false,
+    "errorName":"ErrorName",
+    "message":"Error message"
+}
+```
+
+---
+
+# Project Structure
 
 ```
 src
@@ -205,20 +562,39 @@ src
 │   └── passport.js
 │
 ├── middleware
-│   └── validate.middleware.js
+│   ├── validate.middleware.js
+│   ├── error.middleware.js
+│   ├── auth.middleware.js
+│   ├── role.middleware.js
+│   └── rateLimiter.middleware.js
 │
 ├── modules
+│   │
 │   ├── auth
 │   │   ├── auth.routes.js
 │   │   ├── auth.controller.js
 │   │   ├── auth.service.js
-│   │   └── auth.validator.js
+│   │   ├── auth.validator.js
+│   │   ├── user.model.js
+│   │   └── otp.model.js
 │   │
-│   └── user
-│       └── user.model.js
+│   └── employee
+│       ├── employee.routes.js
+│       ├── employee.controller.js
+│       ├── employee.service.js
+│       ├── employee.validator.js
+│       └── employee.model.js
+│
+├── services
+│   └── email
+│       ├── email.service.js
+│       ├── email.template.js
+│       └── index.js
 │
 ├── utils
-│   └── jwt.js
+│   ├── token.js
+│   ├── hash.js
+│   └── ApiError.js
 │
 ├── app.js
 └── server.js
@@ -228,13 +604,63 @@ src
 
 # Completed Features
 
-- Express Server Setup
-- MongoDB Connection
-- Environment Configuration
-- User Model
-- Joi Validation
-- Validation Middleware
-- Passport Local Strategy
-- JWT Utility
-- Register API
-- Login API
+## Backend Setup
+
+✅ Express Server Setup
+✅ MongoDB Connection
+✅ Environment Configuration
+✅ Modular Architecture
+✅ Global Error Middleware
+
+---
+
+## Authentication
+
+✅ User Model
+✅ OTP Model
+✅ Joi Validation
+✅ Validation Middleware
+✅ Passport Local Strategy
+✅ Password Hashing
+✅ Email OTP Verification
+✅ Register API
+✅ Login API
+✅ JWT Access Token
+✅ JWT Refresh Token
+✅ HttpOnly Cookie Authentication
+✅ Refresh Token Hash Storage
+✅ Rate Limiting
+
+---
+
+## Employee Management
+
+✅ Employee Model
+✅ Employee Validator
+✅ Employee Service
+✅ Employee Controller
+✅ Employee Routes
+✅ Company Email Verification Flow
+✅ Role Based Employee Creation Structure
+
+---
+
+# Next Modules
+
+* Refresh Token API
+* Logout API
+* Role Based Access Control
+* User Management
+* Document Upload
+* Document Permission System
+* Audit Logs
+
+---
+
+# Authentication Module Status
+
+```
+Authentication Module: Completed
+
+Employee Module: Base Completed
+```
