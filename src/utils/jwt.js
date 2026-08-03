@@ -1,40 +1,110 @@
 const jwt = require("jsonwebtoken");
 
+const ACCESS_TOKEN_EXPIRES_IN =
+  process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 
-const generateAccessToken = (user) => {
+const REFRESH_TOKEN_EXPIRES_IN =
+  process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 
-    return jwt.sign(
-        {
-            id: user._id,
-            role: user.role
-        },
-        process.env.JWT_SECRET,
-        {
-            expiresIn: "15m"
-        }
-    );
-
+const getJwtPayload = (user) => {
+  return {
+    id: user._id.toString(),
+    employeeId: user.employeeId
+      ? user.employeeId.toString()
+      : null,
+  };
 };
 
 
-const generateRefreshToken = (user) => {
 
-    return jwt.sign(
-        {
-            id: user._id
-        },
+// ACCESS TOKEN
 
-        process.env.JWT_REFRESH_SECRET,
 
-        {
-            expiresIn: "7d"
-        }
+const generateAccessToken = (user) => {
+  if (!process.env.JWT_ACCESS_SECRET) {
+    throw new Error(
+      "JWT_ACCESS_SECRET is not configured."
     );
+  }
 
+  return jwt.sign(
+    getJwtPayload(user),
+    process.env.JWT_ACCESS_SECRET,
+    {
+      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+      algorithm: "HS256",
+    }
+  );
+};
+
+
+
+// REFRESH TOKEN
+
+
+const generateRefreshToken = (user) => {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error(
+      "JWT_REFRESH_SECRET is not configured."
+    );
+  }
+
+  return jwt.sign(
+    getJwtPayload(user),
+    process.env.JWT_REFRESH_SECRET,
+    {
+      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+      algorithm: "HS256",
+    }
+  );
+};
+
+
+
+// VERIFY ACCESS TOKEN
+
+
+const verifyAccessToken = (token) => {
+  if (!process.env.JWT_ACCESS_SECRET) {
+    throw new Error(
+      "JWT_ACCESS_SECRET is not configured."
+    );
+  }
+
+  return jwt.verify(
+    token,
+    process.env.JWT_ACCESS_SECRET,
+    {
+      algorithms: ["HS256"],
+    }
+  );
+};
+
+
+
+// VERIFY REFRESH TOKEN
+
+
+const verifyRefreshToken = (token) => {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error(
+      "JWT_REFRESH_SECRET is not configured."
+    );
+  }
+
+  return jwt.verify(
+    token,
+    process.env.JWT_REFRESH_SECRET,
+    {
+      algorithms: ["HS256"],
+    }
+  );
 };
 
 
 module.exports = {
-    generateAccessToken,
-    generateRefreshToken
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
 };
