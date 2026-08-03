@@ -18,6 +18,10 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(passport.initialize());
 
+app.get('/', (req,res)=>{
+    res.send("Hello I am DMS Server")
+})
+
 app.use('/api/v1', routes);
 
 app.use(errorMiddleware)

@@ -202,8 +202,6 @@ const sendEmailOTP = async (email) => {
 
 
 // VERIFY EMAIL OTP
-
-
 const verifyEmailOTP = async (email, otp) => {
   const normalizedEmail = email.toLowerCase().trim();
 

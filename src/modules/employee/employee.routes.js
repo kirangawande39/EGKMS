@@ -10,7 +10,6 @@ const authorize = require('../../middleware/role.middleware')
 // Validator
 const {
     createEmployeeValidator
-
 } = require("./employee.validator");
 
 
@@ -24,5 +23,6 @@ router.post(
     validate(createEmployeeValidator),
     employeeController.createEmployee
 );
+
 
 module.exports = router;

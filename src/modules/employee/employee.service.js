@@ -6,7 +6,6 @@ const ApiError = require("../../utils/ApiError");
 
 // CREATE EMPLOYEE
 
-
 const createEmployee = async (employeeData, createdBy = null) => {
   const {
     employeeId,
@@ -104,7 +103,6 @@ const createEmployee = async (employeeData, createdBy = null) => {
 
 // GET EMPLOYEE BY ID
 
-
 const getEmployeeById = async (
   employeeId
 ) => {
@@ -138,7 +136,6 @@ const getEmployeeById = async (
 
 
 // GET EMPLOYEE BY EMAIL
-
 
 const getEmployeeByEmail = async (
   email

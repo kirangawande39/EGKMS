@@ -1,9 +1,6 @@
 const hierarchyService = require("./hierarchy.service");
 
-
-
 // Create
-
 exports.createHierarchy = async(req,res,next)=>{
 
     try{
