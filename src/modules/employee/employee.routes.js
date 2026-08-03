@@ -4,8 +4,8 @@ const router = require("express").Router();
 // Middleware
 const validate = require("../../middleware/validate.middleware");
 
-const authMiddleware = require('../../middleware/auth.middleware')
-const  authorize = require('../../middleware/role.middleware')
+const { authenticate } = require('../../middleware/auth.middleware')
+const authorize = require('../../middleware/role.middleware')
 
 // Validator
 const {
@@ -19,8 +19,8 @@ const employeeController = require("./employee.controller");
 
 router.post(
     "/",
-    authMiddleware,
-     authorize("admin"),
+    authenticate,
+    authorize("SUPER_ADMIN"),
     validate(createEmployeeValidator),
     employeeController.createEmployee
 );

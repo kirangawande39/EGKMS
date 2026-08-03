@@ -1,70 +1,80 @@
-const router = require("express").Router();
-const passport = require("passport");
-
-
-const validate = require("../../middleware/validate.middleware");
-
-
-
-const {
-    createUserValidator,
-    loginValidator,
-    sendEmailOTPValidator,
-    verifyEmailOTPValidator
-
-} = require("./auth.validator");
-
-
-const {
-    loginLimiter,
-    registerLimiter,
-    verifyEmailOTPLimiter,
-    sendEmailOTPLimiter
-
-} = require("../../middleware/rateLimiter.middleware");
-
+const express = require("express");
 
 const authController = require("./auth.controller");
+const authValidator = require("./auth.validator");
+const validate = require("../../middleware/validate.middleware");
+const passport = require("passport");
 
+const router = express.Router();
+
+
+
+// SEND EMAIL OTP
 
 
 router.post(
-    "/send-email-otp",
-    sendEmailOTPLimiter,
-    validate(sendEmailOTPValidator),
-    authController.sendEmailOTP
+  "/send-email-otp",
+  validate(authValidator.sendEmailOTPSchema),
+  authController.sendEmailOTP
 );
 
 
 
+// VERIFY EMAIL OTP
+
+
 router.post(
-    "/verify-email-otp",
-    verifyEmailOTPLimiter,
-    validate(verifyEmailOTPValidator),
-    authController.verifyEmailOTP
+  "/verify-email-otp",
+  validate(authValidator.verifyEmailOTPSchema),
+  authController.verifyEmailOTP
 );
 
 
 
+// REGISTER
+
+
 router.post(
-    "/register",
-    registerLimiter,
-    validate(createUserValidator),
-    authController.register
+  "/register",
+  validate(authValidator.registerSchema),
+  authController.register
 );
 
 
+
+// LOGIN
+
+
 router.post(
-    "/login",
-    loginLimiter,
-    validate(loginValidator),
-    passport.authenticate(
-        "local",
-        {
-            session: false
-        }
-    ),
-    authController.login
+  "/login",
+  validate(authValidator.loginSchema),
+  passport.authenticate("local", {
+    session: false,
+  }),
+  authController.login
+);
+
+
+
+// REFRESH ACCESS TOKEN
+
+
+router.post(
+  "/refresh",
+  authController.refreshToken
+);
+
+
+
+// LOGOUT
+
+
+router.post(
+  "/logout",
+  passport.authenticate("jwt", {
+    session: false,
+  }),
+  authController.logout
 );
 
 

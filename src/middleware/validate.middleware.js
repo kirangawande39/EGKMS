@@ -1,31 +1,29 @@
 const validate = (schema) => {
+  return (req, res, next) => {
+    const { error, value } = schema.validate(
+      req.body,
+      {
+        abortEarly: false,
+        stripUnknown: true,
+      }
+    );
 
-    return (req, res, next) => {
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed.",
+        errors: error.details.map((detail) => ({
+          field: detail.path.join("."),
+          message: detail.message,
+        })),
+      });
+    }
 
-        const { error } = schema.validate(req.body, {
-            abortEarly: false
-        });
+    // Store sanitized/validated data
+    req.body = value;
 
-
-        if (error) {
-
-            const errors = error.details.map(
-                (err) => err.message
-            );
-
-
-            return res.status(400).json({
-                success:false,
-                message:"Validation failed",
-                errors
-            });
-
-        }
-
-
-        next();
-    };
+    next();
+  };
 };
-
 
 module.exports = validate;

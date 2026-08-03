@@ -1,133 +1,110 @@
 const Joi = require("joi");
 
 
-// Register Validator
-const createUserValidator = Joi.object({
-
-    name: Joi.string()
-        .min(3)
-        .required()
-        .messages({
-
-            "string.empty": "Name is required",
-            "string.min": "Name must contain minimum 3 characters"
-
-        }),
+// COMMON EMAIL
 
 
-    email: Joi.string()
-        .email()
-        .required()
-        .messages({
-
-            "string.empty": "Email is required",
-            "string.email": "Please enter valid email"
-
-        }),
-
-
-    password: Joi.string()
-        .min(8)
-        .required()
-        .messages({
-
-            "string.empty": "Password is required",
-            "string.min": "Password must be minimum 8 characters"
-
-        }),
+const email = Joi.string()
+  .email()
+  .lowercase()
+  .trim()
+  .required()
+  .messages({
+    "string.email": "Please enter a valid email address",
+    "any.required": "Email is required",
+  });
 
 
-    role: Joi.string()
-        .valid(
-            "admin",
-            "employee",
-            "manager"
-        )
-        .default("employee")
 
+// SEND EMAIL OTP
+
+
+const sendEmailOTPSchema = Joi.object({
+  email,
 });
 
 
-// Login Validator
-const loginValidator = Joi.object({
 
-    email: Joi.string()
-        .email()
-        .required()
-        .messages({
-
-            "string.empty": "Email is required",
-            "string.email": "Please enter valid email"
-
-        }),
+// VERIFY EMAIL OTP
 
 
-    password: Joi.string()
-        .min(8)
-        .required()
-        .messages({
+const verifyEmailOTPSchema = Joi.object({
+  email,
 
-            "string.empty": "Password is required",
-            "string.min": "Password must be minimum 8 characters"
-
-        })
-
+  otp: Joi.string()
+    .pattern(/^\d{6}$/)
+    .required()
+    .messages({
+      "string.pattern.base":
+        "OTP must be exactly 6 digits",
+      "any.required": "OTP is required",
+    }),
 });
 
 
-// Send OTP Validator
-const sendEmailOTPValidator = Joi.object({
 
-    email: Joi.string()
-        .email()
-        .required()
-        .messages({
+// REGISTER
 
-            "string.empty": "Email is required",
-            "string.email": "Please enter valid email"
 
-        })
+const registerSchema = Joi.object({
+  email,
 
+  password: Joi.string()
+    .min(8)
+    .max(128)
+    .required()
+    .messages({
+      "string.min":
+        "Password must be at least 8 characters",
+      "string.max":
+        "Password cannot exceed 128 characters",
+      "any.required":
+        "Password is required",
+    }),
+
+  confirmPassword: Joi.any()
+    .valid(Joi.ref("password"))
+    .required()
+    .messages({
+      "any.only":
+        "Password and confirm password must match",
+      "any.required":
+        "Confirm password is required",
+    }),
 });
 
 
-// Verify OTP Validator
-const verifyEmailOTPValidator = Joi.object({
 
-    email: Joi.string()
-        .email()
-        .required()
-        .messages({
-
-            "string.empty": "Email is required",
-            "string.email": "Please enter valid email"
-
-        }),
+// LOGIN
 
 
-    otp: Joi.string()
-        .length(6)
-        .pattern(/^[0-9]+$/)
-        .required()
-        .messages({
+const loginSchema = Joi.object({
+  email,
 
-            "string.empty": "OTP is required",
-            "string.length": "OTP must be 6 digits",
-            "string.pattern.base": "OTP must contain only numbers"
-
-        })
-
+  password: Joi.string()
+    .required()
+    .messages({
+      "any.required":
+        "Password is required",
+    }),
 });
+
+
+
+// REFRESH TOKEN
+
+
+const refreshTokenSchema = Joi.object({});
+
+
+
+// EXPORTS
 
 
 module.exports = {
-
-    createUserValidator,
-
-    loginValidator,
-
-    sendEmailOTPValidator,
-
-    verifyEmailOTPValidator
-
+  sendEmailOTPSchema,
+  verifyEmailOTPSchema,
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
 };
