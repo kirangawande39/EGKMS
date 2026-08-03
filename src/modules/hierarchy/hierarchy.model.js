@@ -23,7 +23,6 @@ const hierarchySchema = new mongoose.Schema(
         default:null
     },
 
-
     description:{
         type:String,
         trim:true,

@@ -113,9 +113,7 @@ const login = async (req, res, next) => {
       )
     );
 
-   
     // STORE REFRESH TOKEN IN HTTPONLY COOKIE
-   
 
     res.cookie(
       "refreshToken",
