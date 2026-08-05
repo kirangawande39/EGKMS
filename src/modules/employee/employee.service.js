@@ -1,4 +1,6 @@
 const Employee = require("./employee.model");
+const Department = require("../department/department.model");
+const Team = require("../team/team.model");
 
 const ApiError = require("../../utils/ApiError");
 
