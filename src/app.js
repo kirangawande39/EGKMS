@@ -9,9 +9,14 @@ const errorMiddleware=require('./middleware/error.middleware')
 
 const app = express();
 
+app.use(
+  cors({
+    origin: "http://localhost:4400",
+    credentials: true,
+  })
+);
 app.use(cookieParser());
 app.use(helmet());
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
