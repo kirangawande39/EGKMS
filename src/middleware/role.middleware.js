@@ -41,6 +41,7 @@ const authorize = (...allowedLevels) => {
       });
     }
 
+    
     next();
   };
 };

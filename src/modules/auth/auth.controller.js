@@ -127,8 +127,7 @@ const login = async (req, res, next) => {
     // RESPONSE
     // Tokens are NOT exposed in JSON.
     // They are stored in HttpOnly cookies.
-   
-
+  
     return res.status(200).json({
       success: true,
       message: "Login successful.",
@@ -141,11 +140,7 @@ const login = async (req, res, next) => {
   }
 };
 
-
-
 // REFRESH ACCESS TOKEN
-
-
 const refreshToken = async (req, res, next) => {
   try {
     // Read refresh token from HttpOnly cookie
@@ -157,10 +152,8 @@ const refreshToken = async (req, res, next) => {
         token
       );
 
-   
     // ROTATE ACCESS TOKEN
    
-
     res.cookie(
       "accessToken",
       result.accessToken,
@@ -191,32 +184,21 @@ const refreshToken = async (req, res, next) => {
   }
 };
 
-
-
 // LOGOUT
-
-
 const logout = async (req, res, next) => {
   try {
     await authService.logoutUser(
       req.user._id
     );
 
-   
     // CLEAR ACCESS TOKEN COOKIE
-   
-
     res.clearCookie(
       "accessToken",
       getCookieOptions(
         ACCESS_TOKEN_COOKIE_MAX_AGE
       )
     );
-
-   
     // CLEAR REFRESH TOKEN COOKIE
-   
-
     res.clearCookie(
       "refreshToken",
       getCookieOptions(
@@ -233,11 +215,7 @@ const logout = async (req, res, next) => {
   }
 };
 
-
-
 // EXPORTS
-
-
 module.exports = {
   sendEmailOTP,
   verifyEmailOTP,
