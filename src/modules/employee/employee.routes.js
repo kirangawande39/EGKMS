@@ -1,20 +1,10 @@
 const router = require("express").Router();
-
-
-// Middleware
 const validate = require("../../middleware/validate.middleware");
-
 const { authenticate } = require("../../middleware/auth.middleware");
 const authorize = require("../../middleware/role.middleware");
-
-
-// Validator
 const {
     createEmployeeValidator
 } = require("./employee.validator");
-
-
-// Controller
 const employeeController = require("./employee.controller");
 
 
@@ -27,7 +17,6 @@ router.post(
     employeeController.createEmployee
 );
 
-
 // GET ALL EMPLOYEES
 router.get(
     "/",
@@ -35,7 +24,6 @@ router.get(
     authorize("SUPER_ADMIN"),
     employeeController.getEmployees
 );
-
 
 // GET EMPLOYEE BY EMAIL
 router.get(
@@ -45,7 +33,6 @@ router.get(
     employeeController.getEmployeeByEmail
 );
 
-
 // GET EMPLOYEE BY ID
 router.get(
     "/:employeeId",
@@ -53,7 +40,6 @@ router.get(
     authorize("SUPER_ADMIN"),
     employeeController.getEmployeeById
 );
-
 
 // UPDATE EMPLOYEE
 router.patch(
@@ -63,7 +49,6 @@ router.patch(
     employeeController.updateEmployee
 );
 
-
 // UPDATE EMPLOYEE STATUS
 router.patch(
     "/:employeeId/status",
@@ -71,7 +56,6 @@ router.patch(
     authorize("SUPER_ADMIN"),
     employeeController.updateEmployeeStatus
 );
-
 
 // DELETE EMPLOYEE
 router.delete(

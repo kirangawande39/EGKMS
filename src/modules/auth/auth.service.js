@@ -164,6 +164,7 @@ const sendEmailOTP = async (email) => {
 
   // Generate OTP
   const otp = generateOTP();
+  // console.log(otp)
 
   // Hash OTP before storing
   const otpHash = await bcrypt.hash(

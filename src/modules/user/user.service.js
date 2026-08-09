@@ -8,10 +8,8 @@ const ApiError = require("../../utils/ApiError");
 
 // SAFE USER FIELDS
 
-
 const safeUserSelect =
   "_id employeeId email accountStatus isEmailVerified failedLoginAttempts lockUntil passwordChangedAt lastLogin createdAt updatedAt";
-
 
 // GET ALL USERS
 
@@ -54,8 +52,6 @@ const getUserById = async (userId) => {
 
 
 // UPDATE USER
-
-
 const updateUser = async (
   userId,
   updateData

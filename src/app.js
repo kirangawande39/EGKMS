@@ -15,6 +15,7 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(cookieParser());
 app.use(helmet());
 app.use(express.json());
