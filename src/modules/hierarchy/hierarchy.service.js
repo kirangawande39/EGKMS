@@ -14,12 +14,16 @@ const createHierarchy = async (data) => {
 // Get All Hierarchy
 const getAllHierarchy = async () => {
 
-    const hierarchy = await Hierarchy.find()
-        .populate("parentId", "name level")
-        .populate("createdBy", "name email");
+  const hierarchy = await Hierarchy.find(
+    { status: "active" },
+    {
+      hierarchyLevel: 1,
+      level: 1
+    }
+  )
+    .sort({ level: 1 });
 
-    return hierarchy;
-
+  return hierarchy;
 };
 
 

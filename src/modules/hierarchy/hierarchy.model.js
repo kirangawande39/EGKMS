@@ -2,54 +2,64 @@ const mongoose = require("mongoose");
 
 
 const hierarchySchema = new mongoose.Schema(
-{
-    name:{
-        type:String,
-        required:true,
-        trim:true,
-        unique:true
+    {
+        hierarchyLevel: {
+            type: String,
+            required: true,
+            enum: [
+                "SUPER_ADMIN",
+                "GOVERNANCE",
+                "EXECUTIVE",
+                "DEPARTMENT",
+                "MANAGER",
+                "TEAM_LEAD",
+                "TEAM",
+                "EMPLOYEE",
+                "INTERN",
+            ],
+            unique:true
+        },
+
+        level: {
+            type: Number,
+            required: true,
+            unique:true
+        },
+
+
+        parentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Hierarchy",
+            default: null
+        },
+
+        description: {
+            type: String,
+            trim: true,
+            default: null
+        },
+
+
+        status: {
+            type: String,
+            enum: [
+                "active",
+                "inactive"
+            ],
+            default: "active"
+        },
+
+
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        }
+
     },
-
-
-    level:{
-        type:Number,
-        required:true
-    },
-
-
-    parentId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"Hierarchy",
-        default:null
-    },
-
-    description:{
-        type:String,
-        trim:true,
-        default:null
-    },
-
-
-    status:{
-        type:String,
-        enum:[
-            "active",
-            "inactive"
-        ],
-        default:"active"
-    },
-
-
-    createdBy:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"User",
-        required:true
-    }
-
-},
-{
-    timestamps:true
-});
+    {
+        timestamps: true
+    });
 
 
 module.exports = mongoose.model(
