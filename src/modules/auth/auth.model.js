@@ -73,6 +73,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+
 // Remove sensitive data from API responses
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
