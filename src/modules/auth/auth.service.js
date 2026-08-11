@@ -283,16 +283,19 @@ const verifyEmailOTP = async (email, otp) => {
 
 
 // LOGIN USER
-
-
 const loginUser = async (user) => {
+
+  
+
   const accessToken = generateAccessToken(user);
+
 
   const refreshToken = generateRefreshToken(user);
 
-  const refreshTokenHash = hashToken(
-    refreshToken
-  );
+
+  const refreshTokenHash = hashToken(refreshToken);
+
+
 
   user.refreshTokenHash = refreshTokenHash;
 
