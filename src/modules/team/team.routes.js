@@ -4,7 +4,7 @@ const {
   authenticate,
 } = require("../../middleware/auth.middleware");
 
-const authorize = require("../../middleware/role.middleware");
+const accessControl = require("../permission/accessControl/accessControl.middleware");
 
 const validate = require("../../middleware/validate.middleware");
 
@@ -18,61 +18,77 @@ const teamController = require("./team.controller");
 
 
 // CREATE TEAM
-// FRS: Super Admin and Team Lead have Team creation responsibility.
+// FRS: Team creation responsibility.
+// Permission: TEAM.CREATE
+
+
 router.post(
   "/",
   authenticate,
-  authorize("SUPER_ADMIN", "TEAM_LEAD"),
+  accessControl("TEAM", "CREATE"),
   validate(createTeamValidator),
   teamController.createTeam
 );
 
 
 // GET ALL TEAMS
+// Permission: TEAM.VIEW
+
+
 router.get(
   "/",
   authenticate,
-  authorize("SUPER_ADMIN", "TEAM_LEAD"),
+  accessControl("TEAM", "VIEW"),
   teamController.getTeams
 );
 
 
 // GET TEAM BY ID
+// Permission: TEAM.VIEW
+
+
 router.get(
   "/:teamId",
   authenticate,
-  authorize("SUPER_ADMIN", "TEAM_LEAD"),
+  accessControl("TEAM", "VIEW"),
   teamController.getTeamById
 );
 
 
 // UPDATE TEAM
+// Permission: TEAM.EDIT
+
+
 router.patch(
   "/:teamId",
   authenticate,
-  authorize("SUPER_ADMIN", "TEAM_LEAD"),
+  accessControl("TEAM", "EDIT"),
   validate(updateTeamValidator),
   teamController.updateTeam
 );
 
 
 // UPDATE TEAM STATUS
+// Permission: TEAM.EDIT
+
+
 router.patch(
   "/:teamId/status",
   authenticate,
-  authorize("SUPER_ADMIN", "TEAM_LEAD"),
+  accessControl("TEAM", "EDIT"),
   validate(updateTeamStatusValidator),
   teamController.updateTeamStatus
 );
 
 
 // DELETE TEAM
+// Permission: TEAM.DELETE
+
 router.delete(
   "/:teamId",
   authenticate,
-  authorize("SUPER_ADMIN"),
+  accessControl("TEAM", "DELETE"),
   teamController.deleteTeam
 );
-
 
 module.exports = router;

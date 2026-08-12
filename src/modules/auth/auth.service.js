@@ -310,11 +310,7 @@ const loginUser = async (user) => {
   };
 };
 
-
-
 // REFRESH ACCESS TOKEN
-
-
 const refreshAccessToken = async (refreshToken) => {
   if (!refreshToken) {
     throw new ApiError(

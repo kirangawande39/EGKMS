@@ -10,11 +10,7 @@ const bcrypt = require("bcrypt");
 const User = require("../modules/auth/auth.model");
 const Employee = require("../modules/employee/employee.model");
 
-
-
 // LOCAL STRATEGY
-
-
 passport.use(
   new LocalStrategy(
     {
@@ -24,83 +20,144 @@ passport.use(
     },
 
     async (email, password, done) => {
+      console.time("PASSPORT LOGIN TOTAL");
+
       try {
+        console.time("EMAIL NORMALIZATION");
+
         const normalizedEmail = email
           .toLowerCase()
           .trim();
 
-        // Get user with password because password
-        // has select: false in the User model.
+        console.timeEnd("EMAIL NORMALIZATION");
+
+
+        // Get user with password
+        console.time("USER QUERY");
+
         const user = await User.findOne({
           email: normalizedEmail,
         }).select("+password");
 
+        console.timeEnd("USER QUERY");
+
+
         if (!user) {
+          console.timeEnd("PASSPORT LOGIN TOTAL");
+
           return done(null, false, {
             message: "Invalid email or password.",
           });
         }
 
+
         // Check account status
         if (user.accountStatus !== "ACTIVE") {
+          console.timeEnd("PASSPORT LOGIN TOTAL");
+
           return done(null, false, {
             message: "Account is not active.",
           });
         }
 
+
         // Get linked employee
+        console.time("EMPLOYEE QUERY");
+
         const employee = await Employee.findById(
           user.employeeId
         );
 
+        console.timeEnd("EMPLOYEE QUERY");
+
+
         if (!employee) {
+          console.timeEnd("PASSPORT LOGIN TOTAL");
+
           return done(null, false, {
             message: "Employee record not found.",
           });
         }
 
+
         // Check employee status
         if (employee.status !== "ACTIVE") {
+          console.timeEnd("PASSPORT LOGIN TOTAL");
+
           return done(null, false, {
             message: "Employee account is not active.",
           });
         }
 
+
         // Check email verification
         if (!user.isEmailVerified) {
+          console.timeEnd("PASSPORT LOGIN TOTAL");
+
           return done(null, false, {
             message: "Please verify your email first.",
           });
         }
 
+
         // Compare password
+        console.time("BCRYPT PASSWORD CHECK");
+
         const isPasswordValid =
           await bcrypt.compare(
             password,
             user.password
           );
 
+        console.timeEnd("BCRYPT PASSWORD CHECK");
+
+
         if (!isPasswordValid) {
+
+          console.time("FAILED LOGIN SAVE");
+
           user.failedLoginAttempts += 1;
 
           await user.save();
+
+          console.timeEnd("FAILED LOGIN SAVE");
+
+          console.timeEnd("PASSPORT LOGIN TOTAL");
 
           return done(null, false, {
             message: "Invalid email or password.",
           });
         }
 
-        // Reset failed attempts after successful login
-        user.failedLoginAttempts = 0;
-        user.lockUntil = null;
 
-        await user.save();
+        // Reset failed attempts after successful login
+        console.time("SUCCESS USER SAVE");
+
+        if (
+          user.failedLoginAttempts !== 0 ||
+          user.lockUntil !== null
+        ) {
+          user.failedLoginAttempts = 0;
+          user.lockUntil = null;
+
+          await user.save();
+        }
+
+        console.timeEnd("SUCCESS USER SAVE");
+
 
         // Attach employee information
         user._employee = employee;
 
+
+        console.timeEnd("PASSPORT LOGIN TOTAL");
+
         return done(null, user);
+
       } catch (error) {
+
+        console.timeEnd("PASSPORT LOGIN TOTAL");
+
         return done(error);
       }
     }
@@ -124,7 +181,6 @@ if (!jwtSecret) {
 
 // ACCESS TOKEN COOKIE EXTRACTOR
 
-
 const cookieExtractor = (req) => {
   if (
     req &&
@@ -140,8 +196,6 @@ const cookieExtractor = (req) => {
 
 
 // JWT AUTHENTICATION
-
-
 passport.use(
   new JwtStrategy(
     {
@@ -166,6 +220,12 @@ passport.use(
           userId
         );
 
+        if (!user.isEmailVerified) {
+          return done(null, false, {
+            message: "Please verify your email first.",
+          });
+        }
+
         if (!user) {
           return done(null, false);
         }
@@ -178,6 +238,8 @@ passport.use(
         // Get current employee state
         const employee = await Employee.findById(
           user.employeeId
+        ).select(
+          "_id employeeId firstName lastName hierarchyLevel department team status"
         );
 
         if (!employee) {
@@ -199,6 +261,5 @@ passport.use(
     }
   )
 );
-
 
 module.exports = passport;
