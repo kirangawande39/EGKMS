@@ -1,4 +1,5 @@
 const router = require("express").Router();
+    
 const validate = require("../../middleware/validate.middleware");
 const { authenticate } = require("../../middleware/auth.middleware");
 const authorize = require("../../middleware/role.middleware");
