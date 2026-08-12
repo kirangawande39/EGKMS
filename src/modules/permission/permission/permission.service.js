@@ -1,5 +1,9 @@
 const mongoose = require("mongoose");
 const Permission = require("./permission.model");
+const {
+  PERMISSION_RESOURCES,
+  PERMISSION_ACTIONS,
+} = require("../permission.constants");
 
 const createPermission = async (data, userId) => {
   const resource = data.resource.trim().toUpperCase();
@@ -166,6 +170,16 @@ const deletePermission = async (permissionId) => {
   return true;
 };
 
+const getPermissionOptions = async () => {
+  return {
+    resources: PERMISSION_RESOURCES,
+    actions: PERMISSION_ACTIONS,
+  };
+};
+
+
+
+
 module.exports = {
   createPermission,
   getPermissions,
@@ -173,4 +187,5 @@ module.exports = {
   updatePermission,
   updatePermissionStatus,
   deletePermission,
+  getPermissionOptions,
 };

@@ -7,11 +7,23 @@ const permissionSchema = new mongoose.Schema(
       required: [true, "Permission resource is required"],
       trim: true,
       uppercase: true,
+      enum: {
+        values: [
+          "USER",
+          "EMPLOYEE",
+          "DEPARTMENT",
+          "TEAM",
+          "DOCUMENT",
+        ],
+        message: "{VALUE} is not a valid permission resource",
+      },
     },
 
     action: {
       type: String,
       required: [true, "Permission action is required"],
+      trim: true,
+      uppercase: true,
       enum: {
         values: [
           "VIEW",
@@ -24,7 +36,7 @@ const permissionSchema = new mongoose.Schema(
           "ARCHIVE",
           "RESTORE",
         ],
-        message: "Invalid permission action",
+        message: "{VALUE} is not a valid permission action",
       },
     },
 

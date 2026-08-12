@@ -1,0 +1,27 @@
+const PERMISSION_RESOURCES = [
+  "USER",
+  "EMPLOYEE",
+  "DEPARTMENT",
+  "TEAM",
+  "DOCUMENT",
+  "PERMISSION",
+  "ROLE_PERMISSION",
+  "ACL",
+];
+
+const PERMISSION_ACTIONS = [
+  "VIEW",
+  "CREATE",
+  "EDIT",
+  "DELETE",
+  "REVIEW",
+  "APPROVE",
+  "PUBLISH",
+  "ARCHIVE",
+  "RESTORE",
+];
+
+module.exports = {
+  PERMISSION_RESOURCES,
+  PERMISSION_ACTIONS,
+};

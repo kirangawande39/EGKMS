@@ -15,9 +15,9 @@ const validate = require("../../../middleware/validate.middleware");
 const router = express.Router();
 
 /*
- * Create Permission
- * FRS: Permission configuration is a Super Admin responsibility.
- */
+* Create Permission
+* FRS: Permission configuration is a Super Admin responsibility.
+*/
 
 router.post(
     "/",
@@ -37,6 +37,12 @@ router.get(
     permissionController.getPermissions
 );
 
+router.get(
+  "/options",
+  authenticate,
+  authorize("SUPER_ADMIN"),
+  permissionController.getPermissionOptions
+);
 /*
  * Get Permission By ID
  */
