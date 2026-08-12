@@ -95,6 +95,19 @@ const deletePermission = async (req, res, next) => {
     next(error);
   }
 };
+const getPermissionOptions = async (req, res, next) => {
+  try {
+    const options = await permissionService.getPermissionOptions();
+
+    return res.status(200).json({
+      success: true,
+      message: "Permission options fetched successfully",
+      data: options,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createPermission,
@@ -103,4 +116,5 @@ module.exports = {
   updatePermission,
   updatePermissionStatus,
   deletePermission,
+  getPermissionOptions,
 };

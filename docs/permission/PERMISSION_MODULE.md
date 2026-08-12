@@ -1,5 +1,46 @@
 # Permission Module
 
+## Permission Options API
+
+**Method:** GET
+
+**Endpoint:**
+`/api/v1/permission/options`
+
+**Purpose:**  
+This API is used to fetch the available Permission Resources and Actions for the Permission creation form. The frontend uses this response to populate the Resource and Action dropdowns.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Permission options fetched successfully",
+  "data": {
+    "resources": [
+      "USER",
+      "EMPLOYEE",
+      "DEPARTMENT",
+      "TEAM",
+      "DOCUMENT",
+      "PERMISSION",
+      "ROLE_PERMISSION",
+      "ACL"
+    ],
+    "actions": [
+      "VIEW",
+      "CREATE",
+      "EDIT",
+      "DELETE",
+      "REVIEW",
+      "APPROVE",
+      "PUBLISH",
+      "ARCHIVE",
+      "RESTORE"
+    ]
+  }
+}
+
 ## 1. Purpose
 
 The Permission Module defines the fine-grained actions that can be performed on a system resource.
