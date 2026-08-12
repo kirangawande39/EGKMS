@@ -9,6 +9,8 @@ const teamRoutes = require("../modules/team/team.routes");
 const permissionRoutes = require("../modules/permission/permission/permission.routes");
 const rolePermissionsRoutes = require("../modules/permission/rolePermission/rolePermission.routes");
 const accessControlList=require("../modules/permission/acl/acl.routes");
+const documentRoutes = require("../modules/document/document.routes");
+
 
 
 
@@ -20,7 +22,8 @@ router.use("/department", departmentRoutes);
 router.use("/team", teamRoutes);
 router.use('/permission', permissionRoutes);
 router.use('/role-permission', rolePermissionsRoutes);
-// router.use('/acl', accessControlList)
+router.use('/acl', accessControlList)
+// router.use("/api/documents", documentRoutes);
 
 
 module.exports = router;
