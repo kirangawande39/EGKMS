@@ -165,10 +165,20 @@ const deletePermission = async (permissionId) => {
     throw error;
   }
 
+  // Active permissions cannot be deleted
+  if (permission.status === "ACTIVE") {
+    const error = new Error(
+      "Active permission cannot be deleted. Deactivate the permission first."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   await Permission.findByIdAndDelete(permissionId);
 
   return true;
 };
+
 
 const getPermissionOptions = async () => {
   return {
