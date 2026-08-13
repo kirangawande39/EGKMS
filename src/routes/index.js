@@ -23,7 +23,7 @@ router.use("/team", teamRoutes);
 router.use('/permission', permissionRoutes);
 router.use('/role-permission', rolePermissionsRoutes);
 router.use('/acl', accessControlList)
-// router.use("/api/documents", documentRoutes);
+router.use("/document", documentRoutes);
 
 
 module.exports = router;
