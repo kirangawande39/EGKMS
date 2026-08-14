@@ -6,6 +6,7 @@ const documentController = require("./document.controller");
 
 const {
   createDocumentValidator,
+  updateDocumentValidator
 } = require("./document.validator");
 
 const { authenticate } = require("../../middleware/auth.middleware");
@@ -20,6 +21,14 @@ router.post(
   upload.single("file"),
   validate(createDocumentValidator),
   documentController.createDocument
+);
+
+router.patch(
+  "/:documentId",
+  authenticate,
+  upload.single("file"),
+  updateDocumentValidator,
+  documentController.updateDocument
 );
 
 

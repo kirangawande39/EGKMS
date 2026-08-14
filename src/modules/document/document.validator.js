@@ -27,7 +27,61 @@ const createDocumentValidator = Joi.object({
       "string.pattern.base": "Invalid team ID",
     }),
 });
+const updateDocumentValidator = (req, res, next) => {
+  const errors = {};
+
+  const {
+    title,
+    description,
+    documentType,
+    department,
+    team,
+  } = req.body;
+
+  if (
+    title === undefined &&
+    description === undefined &&
+    documentType === undefined &&
+    department === undefined &&
+    team === undefined &&
+    !req.file
+  ) {
+    errors.document = "At least one field or updated file is required.";
+  }
+
+  if (
+    title !== undefined &&
+    (typeof title !== "string" || !title.trim())
+  ) {
+    errors.title = "Title must be a non-empty string.";
+  }
+
+  if (
+    description !== undefined &&
+    typeof description !== "string"
+  ) {
+    errors.description = "Description must be a string.";
+  }
+
+  if (
+    documentType !== undefined &&
+    (typeof documentType !== "string" || !documentType.trim())
+  ) {
+    errors.documentType = "Document type must be a valid string.";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed.",
+      errors,
+    });
+  }
+
+  next();
+};
 
 module.exports = {
   createDocumentValidator,
+  updateDocumentValidator
 };
