@@ -1,171 +1,101 @@
-const mongoose = require("mongoose");
+const Document = require("./document.model");
 
-const Workflow = require("../workflow/workflow.model");
-const Document = require("../document/document.model");
 const Employee = require("../employee/employee.model");
-const User = require("../auth/auth.model");
+const Department = require("../department/department.model");
 const Team = require("../team/team.model");
+const User = require("../auth/auth.model");
 
-const submitDocument = async ({ documentId, userId }) => {
-  // 1. Validate Document ID
-  if (!mongoose.Types.ObjectId.isValid(documentId)) {
-    const error = new Error("Invalid document ID.");
-    error.statusCode = 400;
-    throw error;
+const createDocument = async ({
+  userId,
+  title,
+  description,
+  documentType,
+  department,
+  team,
+  file,
+}) => {
+  // 1. File is required
+  if (!file) {
+    throw new Error("Document file is required");
   }
 
-  // 2. Find Document
-  const document = await Document.findById(documentId);
-
-  if (!document) {
-    const error = new Error("Document not found.");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  // 3. Find logged-in User
-  const user = await User.findById(userId);
+  // 2. Find logged-in User
+  const user = await User.findById(userId).select("employeeId");
 
   if (!user) {
-    const error = new Error("User not found.");
-    error.statusCode = 404;
-    throw error;
+    throw new Error("User not found");
   }
 
-  // 4. Find linked Employee
+  // 3. Find linked active Employee
   const employee = await Employee.findOne({
     _id: user.employeeId,
     status: "ACTIVE",
   });
 
   if (!employee) {
-    const error = new Error("Active employee not found.");
-    error.statusCode = 404;
-    throw error;
+    throw new Error("Active employee not found");
   }
 
-  // 5. Only document owner can submit
-  if (
-    !document.owner ||
-    document.owner.toString() !== employee._id.toString()
-  ) {
-    const error = new Error(
-      "Only the document owner can submit this document."
-    );
-    error.statusCode = 403;
-    throw error;
+  // 4. Validate Department
+  if (department) {
+    const departmentExists = await Department.findOne({
+      _id: department,
+      status: "ACTIVE",
+    });
+
+    if (!departmentExists) {
+      throw new Error("Department not found or inactive");
+    }
   }
 
-  // 6. Document must be in DRAFT state
-  if (document.status !== "DRAFT") {
-    const error = new Error("Only draft documents can be submitted.");
-    error.statusCode = 400;
-    throw error;
+  // 5. Validate Team
+  if (team) {
+    const teamExists = await Team.findOne({
+      _id: team,
+      status: "ACTIVE",
+    });
+
+    if (!teamExists) {
+      throw new Error("Team not found or inactive");
+    }
+
+    // Team must belong to selected Department
+    if (
+      department &&
+      teamExists.department.toString() !== department.toString()
+    ) {
+      throw new Error(
+        "Selected team does not belong to the selected department"
+      );
+    }
   }
 
-  // 7. Find the Team of the Employee
-  if (!employee.team) {
-    const error = new Error(
-      "Employee is not assigned to a team. Document cannot be submitted."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
+  // 6. Create Document
+  const document = await Document.create({
+    title,
+    description: description || null,
+    documentType,
 
-  const team = await Team.findOne({
-    _id: employee.team,
-    status: "ACTIVE",
+    owner: employee._id,
+
+    department: department || null,
+    team: team || null,
+
+    fileUrl: file.path,
+    filePublicId: file.filename,
+    fileName: file.originalname,
+    fileType: file.mimetype,
+    fileSize: file.size,
+
+    status: "DRAFT",
+    currentVersion: "v1.0",
+
+    createdBy: user._id,
   });
 
-  if (!team) {
-    const error = new Error(
-      "Employee team not found or inactive."
-    );
-    error.statusCode = 404;
-    throw error;
-  }
-
-  // 8. Make sure Employee and Team belong to the same Department
-  if (
-    employee.department &&
-    team.department &&
-    employee.department.toString() !== team.department.toString()
-  ) {
-    const error = new Error(
-      "Employee team does not belong to the employee's department."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // 9. Find Team Lead assigned to THIS Team
-  if (!team.teamLead) {
-    const error = new Error(
-      "No Team Lead is assigned to this team."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const teamLead = await Employee.findOne({
-    _id: team.teamLead,
-    hierarchyLevel: "TEAM_LEAD",
-    status: "ACTIVE",
-  });
-
-  if (!teamLead) {
-    const error = new Error(
-      "Active Team Lead not found for this team."
-    );
-    error.statusCode = 404;
-    throw error;
-  }
-
-  // 10. Make sure Team Lead belongs to the same Team
-  if (
-    !teamLead.team ||
-    teamLead.team.toString() !== team._id.toString()
-  ) {
-    const error = new Error(
-      "Assigned Team Lead does not belong to this team."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // 11. Prevent duplicate active workflow
-  const existingWorkflow = await Workflow.findOne({
-    document: document._id,
-    status: "PENDING_REVIEW",
-  });
-
-  if (existingWorkflow) {
-    const error = new Error(
-      "This document is already submitted for review."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // 12. Create workflow
-  const workflow = await Workflow.create({
-    document: document._id,
-    currentReviewer: teamLead._id,
-    currentLevel: "TEAM_LEAD",
-    status: "PENDING_REVIEW",
-    lastAction: "SUBMITTED",
-    lastActionBy: employee._id,
-    submittedAt: new Date(),
-  });
-
-  // 13. Update Document status
-  document.status = "SUBMITTED";
-
-  await document.save();
-
-  return workflow;
+  return document;
 };
 
 module.exports = {
-  submitDocument,
+  createDocument,
 };
