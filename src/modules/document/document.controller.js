@@ -30,6 +30,32 @@ const createDocument = async (req, res, next) => {
   }
 };
 
+const updateDocument = async (req, res, next) => {
+  try {
+    const { documentId } = req.params;
+
+    const document = await documentService.updateDocument({
+      documentId,
+      userId: req.user._id,
+      title: req.body.title,
+      description: req.body.description,
+      documentType: req.body.documentType,
+      department: req.body.department,
+      team: req.body.team,
+      file: req.file,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document updated and new version created successfully.",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createDocument,
+  updateDocument
 };
