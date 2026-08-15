@@ -28,6 +28,7 @@ const workflowSchema = new mongoose.Schema(
         "DEPARTMENT_HEAD",
         "EXECUTIVE",
         "GOVERNANCE",
+        "SUPER_ADMIN",
       ],
       default: null,
     },
@@ -41,6 +42,7 @@ const workflowSchema = new mongoose.Schema(
         "REVISION",
         "REJECTED",
         "COMPLETED",
+        "RETURNED"
       ],
       default: "PENDING_REVIEW",
     },
@@ -54,6 +56,8 @@ const workflowSchema = new mongoose.Schema(
         "APPROVED",
         "RETURNED",
         "REJECTED",
+        "REMINDER",
+        "ESCALATED",
       ],
       default: "SUBMITTED",
     },
@@ -74,6 +78,32 @@ const workflowSchema = new mongoose.Schema(
     reviewedAt: {
       type: Date,
       default: null,
+    },
+
+    // Number of reminders sent for the current review step
+    reminderCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // When the most recent reminder was generated
+    lastReminderAt: {
+      type: Date,
+      default: null,
+    },
+
+    // When the workflow was automatically escalated
+    escalatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Number of automatic escalations performed
+    escalationCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   {

@@ -1,36 +1,32 @@
-# Document Management Module
+# EGKMS — Document Management Module
 
 ## 1. Module Overview
 
-The Document Management module handles document creation and file upload
-for EGKMS.
+The Document Management module handles document creation, file upload, ownership, document updates, and version creation.
 
-Current implemented flow:
+Current implemented lifecycle covered by this module:
 
-``` text
-Frontend / Postman
+```text
+Authenticated User
         ↓
-Create Document Form
-        ↓
-Upload File
-        ↓
-Multer
-        ↓
-Cloudinary
-        ↓
-MongoDB Document Record
+Create Document
         ↓
 DRAFT
         ↓
 v1.0
+        ↓
+Update Document
+        ↓
+New Version Created
+        ↓
+v1.1 / v1.2 / ...
+        ↓
+Submit for Workflow Review
 ```
 
-> **Storage Note:** The FRS specifies AWS S3 Private Bucket as the final
-> storage technology. Cloudinary is currently being used for
-> development/testing. The storage layer should later be moved to S3 for
-> final FRS compliance.
+> **Storage Note:** The FRS specifies an AWS S3 Private Bucket as the final storage technology. Cloudinary is currently used by the development/testing implementation. Do not change the current storage integration unless the project decision is to migrate it to S3.
 
-------------------------------------------------------------------------
+---
 
 ## 2. Create Document API
 
@@ -38,97 +34,85 @@ v1.0
 
 **Endpoint:**
 
-``` text
+```text
 /api/v1/document
 ```
 
-The API creates a document and stores the uploaded file.
+The API creates a document and uploads its file.
 
 ### Authentication
 
-The API requires authentication. The access token is handled through the
-existing authentication mechanism/cookie.
+The API requires authentication. The project uses the existing HttpOnly-cookie authentication flow.
 
-Fetch:
+Frontend:
 
-``` javascript
-fetch("/api/v1/document", {
-  method: "POST",
-  credentials: "include",
-  body: formData
-});
-```
-
-Axios:
-
-``` javascript
-axios.post("/api/v1/document", formData, {
+```javascript
+await axios.post("/api/v1/document", formData, {
   withCredentials: true
 });
 ```
 
-------------------------------------------------------------------------
+Do not manually send an `Authorization` header when using the project's HttpOnly-cookie flow unless the backend deployment configuration specifically requires it.
 
-## 3. Request Format
+---
 
-Because a real PDF/DOCX file is uploaded, the request must use:
+## 3. Create Request Format
 
-``` text
+Because a real file is uploaded, use:
+
+```text
 multipart/form-data
 ```
 
-In Postman:
+Postman:
 
-``` text
+```text
 Body → form-data
 ```
 
-### Fields
+Fields:
 
-  Key              Type   Description
-  ---------------- ------ --------------------------
-  `file`           File   PDF/DOCX document
-  `title`          Text   Document title
-  `description`    Text   Document description
-  `documentType`   Text   Document type
-  `department`     Text   Department MongoDB `_id`
-  `team`           Text   Team MongoDB `_id`
+| Key | Type | Required | Description |
+|---|---|---:|---|
+| `file` | File | Yes | PDF/DOCX/etc. supported by current upload validation |
+| `title` | Text | Yes | Document title |
+| `description` | Text | As required by validator | Document description |
+| `documentType` | Text | Yes | Example: `POLICY` |
+| `department` | Text | Yes | Department MongoDB `_id` |
+| `team` | Text | Optional | Team MongoDB `_id` |
 
 Example:
 
-``` text
+```text
 file          → EmployeeLeavePolicy.pdf
 title         → Employee Leave Policy
 description   → Company employee leave policy
 documentType  → POLICY
-department    → DEPARTMENT_OBJECT_ID
-team          → TEAM_OBJECT_ID
+department    → 6a7178421c73966a2997d72b
+team          → 6a79a5240bfaf71ffa3e23d7
 ```
 
-`department` and `team` must contain MongoDB ObjectIds, not names.
+**Important:** send MongoDB ObjectIds, not department/team names.
 
-If the document has no Team association, `team` can be left empty
-according to the current implementation.
-
-------------------------------------------------------------------------
+---
 
 ## 4. File Upload
 
-The route uses:
+The current route uses:
 
-``` javascript
+```javascript
 upload.single("file")
 ```
 
-Therefore the frontend/Postman file key must be exactly:
+Therefore the file field must be exactly:
 
-``` text
+```text
 file
 ```
 
-The upload flow is:
+Current development flow:
 
-``` text
+```text
 Selected File
      ↓
 FormData
@@ -142,17 +126,17 @@ File URL / Public ID
 MongoDB Document
 ```
 
-The frontend does not need to upload the file to Cloudinary directly.
+The frontend does not upload directly to Cloudinary.
 
-------------------------------------------------------------------------
+---
 
 ## 5. Document Ownership
 
-The frontend does **not** send the document owner.
+The frontend must **not** send the document owner.
 
-Backend flow:
+Backend derives ownership from the authenticated account:
 
-``` text
+```text
 Authenticated User
         ↓
 User.employeeId
@@ -162,118 +146,341 @@ Employee
 Document.owner
 ```
 
-This follows the FRS rule that every document has exactly one Owner.
+The backend also controls `createdBy`.
 
-The backend also sets `createdBy` from the authenticated User.
+Do not manually send:
 
-------------------------------------------------------------------------
+```text
+owner
+createdBy
+status
+currentVersion
+```
+
+---
 
 ## 6. Department and Team Validation
 
-The backend validates:
+Department:
 
-``` text
+```text
 Department
-   ↓
-Must exist
-   ↓
-Must be ACTIVE
+    ↓
+exists
+    ↓
+ACTIVE
 ```
 
-For Team:
+Team, when supplied:
 
-``` text
+```text
 Team
-   ↓
-Must exist
-   ↓
-Must be ACTIVE
-   ↓
-Must belong to selected Department
+    ↓
+exists
+    ↓
+ACTIVE
+    ↓
+belongs to selected Department
 ```
 
 Example:
 
-``` text
+```text
 Information Technology
         ↓
-Backend Engineering
+Frontend Engineering
         ↓
 Document
 ```
 
-If the Team does not belong to the selected Department, the API rejects
-the request.
+If the Team does not belong to the selected Department, the request is rejected.
 
-------------------------------------------------------------------------
+---
 
 ## 7. Initial Document State
 
 After successful creation:
 
-``` text
+```text
 status = DRAFT
 currentVersion = v1.0
 ```
 
 Create and Submit are separate operations.
 
-``` text
-Upload / Create
-      ↓
+```text
 POST /api/v1/document
-      ↓
+        ↓
 DRAFT
+        ↓
+POST /api/v1/workflow/:documentId/submit
+        ↓
+Workflow starts
 ```
 
-Later:
+---
 
-``` text
-Submit for Review
+# 8. Update Document + Version Creation
+
+## Purpose
+
+When an editable document is changed after creation, the current implementation creates a **new document version**.
+
+Example:
+
+```text
+Existing
+v1.0
+  ↓
+Update
+  ↓
+New Version
+v1.1
+```
+
+A later update can produce:
+
+```text
+v1.1
+  ↓
+Update
+  ↓
+v1.2
+```
+
+The API response confirms this behavior with:
+
+```text
+Document updated and new version created successfully.
+```
+
+### Important frontend rule
+
+The frontend should treat the returned `currentVersion` as the source of truth.
+
+Do not calculate the next version number in React.
+
+Backend controls:
+
+```text
+currentVersion
+fileUrl
+filePublicId
+fileName
+fileType
+fileSize
+updatedAt
+```
+
+---
+
+## 9. Update Document API
+
+Use the update endpoint exposed by the current Document routes.
+
+**Method:** `PATCH`
+
+**Endpoint pattern:**
+
+```text
+/api/v1/document/:documentId
+```
+
+> Use the exact route registered in the current backend if your route prefix differs.
+
+The `:documentId` is the MongoDB `Document._id`.
+
+Example:
+
+```text
+6a7f011ae39b2059de652fcd
+```
+
+### Request
+
+If a new file is being uploaded, use:
+
+```text
+multipart/form-data
+```
+
+Postman:
+
+```text
+Body → form-data
+```
+
+Typical fields:
+
+```text
+title
+description
+documentType
+department
+team
+file
+```
+
+Only send fields that the update validator accepts. Do not send backend-controlled fields such as `owner`, `createdBy`, or `currentVersion`.
+
+### Example update
+
+```text
+title:
+Employee Leave Policy - Updated
+
+description:
+Updated company employee leave policy with revised leave rules
+
+documentType:
+POLICY
+
+department:
+6a7178421c73966a2997d72b
+
+team:
+6a79a5240bfaf71ffa3e23d7
+
+file:
+UpdatedPolicy.pdf
+```
+
+### Result
+
+Expected behavior:
+
+```text
+Document
+    ↓
+Updated metadata/file
+    ↓
+New version
+    ↓
+currentVersion = v1.1
+```
+
+---
+
+## 10. Update + Workflow Relationship
+
+Updating a document and submitting it for review are separate actions.
+
+```text
+DRAFT
+  ↓
+Update
+  ↓
+v1.1
+  ↓
+Submit
+  ↓
+Workflow PENDING_REVIEW
+```
+
+When a reviewer returns a document for revision:
+
+```text
+PENDING_REVIEW
       ↓
-POST /api/v1/document/:documentId/submit
+RETURN
       ↓
-Workflow
+REVISION
+      ↓
+Owner edits document
+      ↓
+New version
+      ↓
+Resubmit
+      ↓
+PENDING_REVIEW
 ```
 
-The Submit/Approval workflow is not part of the current Create API.
+The frontend should refresh the document after a successful update and should display the returned `currentVersion`.
 
-------------------------------------------------------------------------
+---
 
-## 8. Example Success Response
+## 11. Document Status vs Workflow Status
 
-``` json
-{
-  "success": true,
-  "message": "Document created successfully",
-  "data": {
-    "_id": "DOCUMENT_OBJECT_ID",
-    "title": "Employee Leave Policy",
-    "description": "Company employee leave policy",
-    "documentType": "POLICY",
-    "owner": "EMPLOYEE_OBJECT_ID",
-    "department": "DEPARTMENT_OBJECT_ID",
-    "team": "TEAM_OBJECT_ID",
-    "fileUrl": "CLOUDINARY_FILE_URL",
-    "filePublicId": "CLOUDINARY_FILE_REFERENCE",
-    "fileName": "EmployeeLeavePolicy.pdf",
-    "fileType": "application/pdf",
-    "fileSize": 123456,
-    "status": "DRAFT",
-    "currentVersion": "v1.0",
-    "createdBy": "USER_OBJECT_ID"
-  }
-}
+These are different fields.
+
+### Document status
+
+Examples:
+
+```text
+DRAFT
+SUBMITTED
+REVISION
+PUBLISHED
 ```
 
-The frontend should use the returned `_id` as the Document ID for future
-operations.
+### Workflow status
 
-------------------------------------------------------------------------
+Examples:
 
-## 9. Frontend Form Example
+```text
+PENDING_REVIEW
+REVISION
+REJECTED
+COMPLETED
+```
 
-``` javascript
+Do not use the workflow status as the document status.
+
+Example:
+
+```text
+Document.status = REVISION
+Workflow.status = REVISION
+```
+
+After successful resubmission:
+
+```text
+Document.status = SUBMITTED
+Workflow.status = PENDING_REVIEW
+```
+
+After final publication:
+
+```text
+Document.status = PUBLISHED
+Workflow.status = COMPLETED
+```
+
+---
+
+## 12. Submit for Review
+
+The Document Management module does not decide the reviewer.
+
+Use:
+
+```http
+POST /api/v1/workflow/:documentId/submit
+```
+
+Flow:
+
+```text
+Document = DRAFT / REVISION
+        ↓
+Submit
+        ↓
+Workflow finds Employee
+        ↓
+Employee → Team
+        ↓
+Team → Team Lead
+        ↓
+PENDING_REVIEW
+```
+
+---
+
+## 13. Frontend Create Example
+
+```javascript
 const formData = new FormData();
 
 formData.append("title", title);
@@ -292,159 +499,237 @@ await axios.post("/api/v1/document", formData, {
 });
 ```
 
-Do not manually set the `Content-Type` header when using Axios with
-`FormData`. The browser handles the multipart boundary.
+Do not manually set:
 
-------------------------------------------------------------------------
-
-## 10. Frontend Responsibilities
-
-``` text
-Collect form data
-        ↓
-Select file
-        ↓
-Create FormData
-        ↓
-Call Create Document API
-        ↓
-Show loading state
-        ↓
-Handle success/error
-        ↓
-Refresh document data
+```text
+Content-Type: multipart/form-data
 ```
+
+when using browser `FormData` with Axios. The browser must create the multipart boundary.
+
+---
+
+## 14. Frontend Update Example
+
+```javascript
+const formData = new FormData();
+
+formData.append("title", title);
+formData.append("description", description);
+formData.append("documentType", documentType);
+formData.append("department", departmentId);
+
+if (teamId) {
+  formData.append("team", teamId);
+}
+
+if (selectedFile) {
+  formData.append("file", selectedFile);
+}
+
+await axios.patch(
+  `/api/v1/document/${documentId}`,
+  formData,
+  {
+    withCredentials: true
+  }
+);
+```
+
+After success:
+
+```text
+Refresh document data
+        ↓
+Read currentVersion
+        ↓
+Display new version
+```
+
+---
+
+## 15. Frontend Responsibilities
+
+```text
+Create Form
+    ↓
+Collect title/description/type
+    ↓
+Select Department._id
+    ↓
+Select Team._id
+    ↓
+Select File
+    ↓
+Create FormData
+    ↓
+POST Create API
+    ↓
+Show DRAFT
+```
+
+For editing:
+
+```text
+Open Document
+    ↓
+Edit allowed fields
+    ↓
+Optionally select replacement file
+    ↓
+PATCH Document
+    ↓
+New Version Created
+    ↓
+Refresh Document
+    ↓
+Display currentVersion
+```
+
+For submission:
+
+```text
+Click Submit for Review
+    ↓
+POST /workflow/:documentId/submit
+    ↓
+Show PENDING_REVIEW
+    ↓
+Show current reviewer/current level from workflow response
+```
+
+---
+
+## 16. Backend Controlled Fields
 
 Frontend should not decide:
 
-``` text
+```text
 owner
 createdBy
 status
 currentVersion
+workflow reviewer
+workflow currentLevel
+workflow approval result
 ```
 
-These are controlled by the backend.
+Backend determines these values.
 
-------------------------------------------------------------------------
+---
 
-## 11. Current Backend Structure
+## 17. Current API / Flow Reference
 
-``` text
-document/
-├── document.model.js
-├── document.validator.js
-├── document.service.js
-├── document.controller.js
-└── document.routes.js
-```
-
-Upload support:
-
-``` text
-src/
-├── config/
-│   └── cloudinary.js
-└── middleware/
-    └── upload.middleware.js
-```
-
-Current status:
-
-``` text
-Document Model          ✅
-Document Validator      ✅
-Document Service        ✅
-Document Controller     ✅
-Document Routes         ✅
-Multer                  ✅
-Cloudinary Upload       ✅
-Create Document API     ✅
-DRAFT Creation          ✅
-Version v1.0            ✅
-Postman Testing         ✅
-```
-
-------------------------------------------------------------------------
-
-## 12. Current API Flow
-
-``` text
-Authenticated User
-        ↓
-Create Document Form
-        ↓
-Select File
-        ↓
-Click Upload / Create
-        ↓
+```text
 POST /api/v1/document
-        ↓
-Authentication
-        ↓
-Multer
-        ↓
-Cloudinary
-        ↓
-Joi Validation
-        ↓
-User → Employee
-        ↓
-Department Validation
-        ↓
-Team Validation
-        ↓
-Document Creation
-        ↓
-DRAFT
-        ↓
-v1.0
+    → Create Document
+    → DRAFT
+    → v1.0
+
+PATCH /api/v1/document/:documentId
+    → Update Document
+    → Create New Version
+    → v1.1 / v1.2 / ...
+
+POST /api/v1/workflow/:documentId/submit
+    → Start Review Workflow
 ```
 
-------------------------------------------------------------------------
+---
 
-## 13. Common Errors
+## 18. Common Errors
 
-### Team not found or inactive
+### Invalid Department ObjectId
 
-``` json
-{
-  "success": false,
-  "errorName": "Error",
-  "message": "Team not found or inactive",
-  "errors": []
-}
+Send:
+
+```text
+department = Department._id
 ```
 
-Use the actual active `Team._id`, not the Team name.
+Not:
 
-### Department not found or inactive
+```text
+department = "Information Technology"
+```
 
-Use the actual active `Department._id`.
+### Invalid Team ObjectId
 
-### File is required
+Send:
 
-Make sure the request contains:
+```text
+team = Team._id
+```
 
-``` text
+Not:
+
+```text
+team = "Frontend Engineering"
+```
+
+### File required
+
+Use:
+
+```text
 Key: file
 Type: File
 ```
 
-### Invalid Department/Team ID
+### Owner should not be sent
 
-Use a valid MongoDB ObjectId.
+The backend derives the owner from the authenticated account.
 
-------------------------------------------------------------------------
+### Version should not be sent
 
-## 14. FRS Alignment
+The backend creates the next version.
 
-The FRS requires every document to have exactly one owner. The current
-implementation derives the owner from the authenticated Employee.
+---
 
-The FRS document lifecycle is:
+## 19. Current Implementation Status
 
-``` text
+```text
+Document Model              ✅
+Document Validator          ✅
+Document Service            ✅
+Document Controller         ✅
+Document Routes             ✅
+Multer                      ✅
+Cloudinary Upload           ✅
+Create Document             ✅
+DRAFT Creation              ✅
+Version v1.0                ✅
+Document Update             ✅
+New Version Creation        ✅
+Version Increment           ✅
+Submit Integration          ✅
+```
+
+---
+
+## 20. FRS Alignment
+
+The FRS requires document ownership, controlled document lifecycle, version control, workflow/approval, auditability, access control, and publishing.
+
+Current implementation covered here:
+
+```text
+Create
+  ↓
+DRAFT
+  ↓
+Update
+  ↓
+New Version
+  ↓
+Submit
+  ↓
+Workflow
+```
+
+The FRS defines the broader lifecycle:
+
+```text
 Draft
   ↓
 Submitted
@@ -466,107 +751,63 @@ Version Update
 Archived
 ```
 
-The current Create API implements only:
+Not every lifecycle state is handled by the Create/Update API itself. Workflow and lifecycle APIs are responsible for their respective transitions.
 
-``` text
-Create Document
-      ↓
-DRAFT
+---
+
+## 21. Quick Frontend Checklist
+
+```text
+Create:
+[ ] Use multipart/form-data
+[ ] File key = file
+[ ] Send Department._id
+[ ] Send Team._id when applicable
+[ ] Do not send owner
+[ ] Do not send createdBy
+[ ] Do not send status
+[ ] Do not send currentVersion
+
+Update:
+[ ] Use document MongoDB _id in URL
+[ ] Send only allowed editable fields
+[ ] Upload replacement file only when needed
+[ ] Do not send currentVersion
+[ ] Refresh after success
+[ ] Display returned currentVersion
+
+Submit:
+[ ] Use Workflow submit API
+[ ] Do not choose reviewer manually
+[ ] Read currentReviewer/currentLevel from workflow response
 ```
 
-Workflow, approval, version control, audit logging, escalation, and
-other lifecycle stages are separate remaining work.
+---
 
-The FRS also requires documents to follow organizational hierarchy
-without skipping levels.
+# 22. Summary
 
-------------------------------------------------------------------------
+The Document Management module now supports both **document creation** and **document updating with new version creation**.
 
-## 15. Next Work
+Frontend developers should remember:
 
-Current:
-
-``` text
-Document Create
+```text
+Document._id
       ↓
-COMPLETED ✅
-```
+used for update and workflow submit
 
-Next:
-
-``` text
-Workflow / Submit
+Department._id
       ↓
-Approval
+send as department
+
+Team._id
       ↓
-Version Control
-      ↓
-Audit Logging
-      ↓
-Escalation
-```
+send as team
 
-The next workflow must follow the FRS hierarchy, such as:
-
-``` text
-Employee
-   ↓
-Team Lead
-   ↓
-Manager
-   ↓
-Department Head
-   ↓
-Executive
-   ↓
-Governance
-```
-
-------------------------------------------------------------------------
-
-## 16. Quick Frontend Reference
-
-``` text
-API:
-POST /api/v1/document
-
-Request:
-multipart/form-data
-
-File key:
-file
-
-References:
-department → Department._id
-team → Team._id
-
-Backend controlled:
-owner
-createdBy
-status
 currentVersion
+      ↓
+backend controlled
 
-Initial status:
-DRAFT
-
-Initial version:
-v1.0
-
-Create and Submit:
-Separate APIs
+owner
+      ↓
+backend controlled
 ```
-
-## 17. Summary
-
-The current Document Create API is ready for frontend integration.
-
-Frontend developers should:
-
-1.  Use `multipart/form-data`.
-2.  Send the file using the key `file`.
-3.  Send Department and Team MongoDB `_id` values.
-4.  Not send owner or backend-controlled fields.
-5.  Treat a newly created document as `DRAFT`.
-6.  Store/use the returned Document `_id`.
-7.  Use a separate Submit-for-Review action when the Workflow API is
-    implemented.

@@ -4,6 +4,8 @@ const Workflow = require("./workflow.model");
 const Document = require("../document/document.model");
 const Employee = require("../employee/employee.model");
 const User = require("../auth/auth.model");
+const Department = require("../department/department.model")
+const Team = require("../team/team.model");
 
 /**
  * Submit a document for workflow review.
@@ -140,6 +142,11 @@ const submitDocument = async ({ documentId, user }) => {
     lastAction: "SUBMITTED",
     lastActionBy: employee._id,
     submittedAt: new Date(),
+    reviewedAt: null,
+    reminderCount: 0,
+    lastReminderAt: null,
+    escalatedAt: null,
+    escalationCount: 0,
   });
 
   // 11. Update document status
@@ -257,9 +264,634 @@ const getMySubmissions = async (user) => {
   return workflows;
 };
 
+const reviewWorkflow = async ({
+  workflowId,
+  reviewerId,
+  action,
+}) => {
+  if (!mongoose.Types.ObjectId.isValid(workflowId)) {
+    const error = new Error("Invalid workflow ID.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const workflow = await Workflow.findById(workflowId);
+
+  if (!workflow) {
+    const error = new Error("Workflow not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (workflow.status !== "PENDING_REVIEW") {
+    const error = new Error(
+      "This workflow is not pending review."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Current reviewer must match logged-in Employee
+  if (
+    !workflow.currentReviewer ||
+    workflow.currentReviewer.toString() !== reviewerId.toString()
+  ) {
+    const error = new Error(
+      "You are not authorized to review this document."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Supported workflow actions
+  if (!["APPROVE", "RETURN", "REJECT"].includes(action)) {
+    const error = new Error(
+      "Invalid review action. Use APPROVE, RETURN or REJECT."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const reviewer = await Employee.findOne({
+    _id: reviewerId,
+    status: "ACTIVE",
+  });
+
+  if (!reviewer) {
+    const error = new Error("Active reviewer not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Reviewer hierarchy must match workflow level
+  if (reviewer.hierarchyLevel !== workflow.currentLevel) {
+    const error = new Error(
+      "Reviewer hierarchy level does not match the workflow level."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // =====================================================
+  // RETURN
+  // =====================================================
+
+  if (action === "RETURN") {
+    workflow.status = "REVISION";
+    workflow.currentReviewer = null;
+    workflow.lastAction = "RETURNED";
+    workflow.lastActionBy = reviewer._id;
+    workflow.reviewedAt = new Date();
+
+    await workflow.save();
+
+    await Document.findByIdAndUpdate(workflow.document, {
+      status: "REVISION",
+    });
+
+    return workflow;
+  }
+
+  // =====================================================
+  // REJECT
+  // =====================================================
+
+  if (action === "REJECT") {
+    workflow.status = "REJECTED";
+    workflow.currentReviewer = null;
+    workflow.lastAction = "REJECTED";
+    workflow.lastActionBy = reviewer._id;
+    workflow.reviewedAt = new Date();
+
+    await workflow.save();
+
+    await Document.findByIdAndUpdate(workflow.document, {
+      status: "REJECTED",
+    });
+
+    return workflow;
+  }
+
+  // =====================================================
+  // APPROVE
+  // =====================================================
+
+  if (action === "APPROVE") {
+
+    // ---------------------------------------------------
+    // TEAM LEAD → MANAGER
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "TEAM_LEAD") {
+      const manager = await Employee.findOne({
+        _id: reviewer.reportingManager,
+        hierarchyLevel: "MANAGER",
+        status: "ACTIVE",
+      });
+
+      if (!manager) {
+        const error = new Error(
+          "Active Manager not found for this Team Lead."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      workflow.currentReviewer = manager._id;
+      workflow.currentLevel = "MANAGER";
+      workflow.status = "PENDING_REVIEW";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+      workflow.submittedAt = new Date();
+      workflow.reminderCount = 0;
+      workflow.lastReminderAt = null;
+      workflow.escalatedAt = null;
+
+      await workflow.save();
+
+      return workflow;
+    }
+
+    // ---------------------------------------------------
+    // MANAGER → DEPARTMENT HEAD
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "MANAGER") {
+      const department = await Department.findById(
+        reviewer.department
+      ).select("head");
+
+      if (!department) {
+        const error = new Error("Department not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!department.head) {
+        const error = new Error(
+          "Department Head is not assigned."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const departmentHead = await Employee.findOne({
+        _id: department.head,
+        hierarchyLevel: "DEPARTMENT_HEAD",
+        status: "ACTIVE",
+      });
+
+      if (!departmentHead) {
+        const error = new Error(
+          "Active Department Head not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      workflow.currentReviewer = departmentHead._id;
+      workflow.currentLevel = "DEPARTMENT_HEAD";
+      workflow.status = "PENDING_REVIEW";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+      workflow.submittedAt = new Date();
+      workflow.reminderCount = 0;
+      workflow.lastReminderAt = null;
+      workflow.escalatedAt = null;
+
+      await workflow.save();
+
+      return workflow;
+    }
+
+    // ---------------------------------------------------
+    // DEPARTMENT HEAD → EXECUTIVE
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "DEPARTMENT_HEAD") {
+      const executive = await Employee.findOne({
+        department: reviewer.department,
+        hierarchyLevel: "EXECUTIVE",
+        status: "ACTIVE",
+      });
+
+      if (!executive) {
+        const error = new Error(
+          "Active Executive not found for this department."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      workflow.currentReviewer = executive._id;
+      workflow.currentLevel = "EXECUTIVE";
+      workflow.status = "PENDING_REVIEW";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+      workflow.submittedAt = new Date();
+      workflow.reminderCount = 0;
+      workflow.lastReminderAt = null;
+      workflow.escalatedAt = null;
+
+      await workflow.save();
+
+      return workflow;
+    }
+
+    // ---------------------------------------------------
+    // EXECUTIVE → GOVERNANCE
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "EXECUTIVE") {
+      const governance = await Employee.findOne({
+        hierarchyLevel: "GOVERNANCE",
+        status: "ACTIVE",
+      });
+
+      if (!governance) {
+        const error = new Error(
+          "Active Governance reviewer not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      workflow.currentReviewer = governance._id;
+      workflow.currentLevel = "GOVERNANCE";
+      workflow.status = "PENDING_REVIEW";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+      workflow.submittedAt = new Date();
+      workflow.reminderCount = 0;
+      workflow.lastReminderAt = null;
+      workflow.escalatedAt = null;
+
+      await workflow.save();
+
+      return workflow;
+    }
+
+    // ---------------------------------------------------
+    // GOVERNANCE → PUBLISHED
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "GOVERNANCE") {
+      workflow.currentReviewer = null;
+      workflow.status = "COMPLETED";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+      workflow.submittedAt = new Date();
+      workflow.reminderCount = 0;
+      workflow.lastReminderAt = null;
+      workflow.escalatedAt = null;
+
+      await workflow.save();
+
+      await Document.findByIdAndUpdate(workflow.document, {
+        status: "PUBLISHED",
+      });
+
+      return workflow;
+    }
+
+    // ---------------------------------------------------
+    // SUPER ADMIN → PUBLISHED
+    // ---------------------------------------------------
+
+    if (workflow.currentLevel === "SUPER_ADMIN") {
+      workflow.currentReviewer = null;
+      workflow.status = "COMPLETED";
+      workflow.lastAction = "APPROVED";
+      workflow.lastActionBy = reviewer._id;
+      workflow.reviewedAt = new Date();
+
+      await workflow.save();
+
+      await Document.findByIdAndUpdate(workflow.document, {
+        status: "PUBLISHED",
+      });
+
+      return workflow;
+    }
+
+    const error = new Error(
+      `Approval transition from ${workflow.currentLevel} is not implemented yet.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
+const resubmitDocument = async ({
+  documentId,
+  employeeId,
+}) => {
+  if (!mongoose.Types.ObjectId.isValid(documentId)) {
+    const error = new Error("Invalid document ID.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const document = await Document.findById(documentId);
+
+  if (!document) {
+    const error = new Error("Document not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Only the document owner can resubmit
+  if (
+    !document.owner ||
+    document.owner.toString() !== employeeId.toString()
+  ) {
+    const error = new Error(
+      "Only the document owner can resubmit this document."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Only revision documents can be resubmitted
+  if (document.status !== "REVISION") {
+    const error = new Error(
+      "Only documents in REVISION status can be resubmitted."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const workflow = await Workflow.findOne({
+    document: document._id,
+  });
+
+  if (!workflow) {
+    const error = new Error(
+      "Workflow not found for this document."
+    );
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (workflow.status !== "REVISION") {
+    const error = new Error(
+      "This workflow is not currently in revision."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // ---------------------------------------------------
+  // Find the document's Team
+  // ---------------------------------------------------
+
+  if (!document.team) {
+    const error = new Error(
+      "Document team is not assigned."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const team = await Team.findOne({
+    _id: document.team,
+    status: "ACTIVE",
+  }).select("teamLead department");
+
+  if (!team) {
+    const error = new Error(
+      "Active team not found for this document."
+    );
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!team.teamLead) {
+    const error = new Error(
+      "Team Lead is not assigned to this team."
+    );
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const teamLead = await Employee.findOne({
+    _id: team.teamLead,
+    hierarchyLevel: "TEAM_LEAD",
+    status: "ACTIVE",
+  });
+
+  if (!teamLead) {
+    const error = new Error(
+      "Active Team Lead not found for this team."
+    );
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // ---------------------------------------------------
+  // Resubmit document
+  // ---------------------------------------------------
+
+  document.status = "SUBMITTED";
+  await document.save();
+
+  workflow.currentReviewer = teamLead._id;
+  workflow.currentLevel = "TEAM_LEAD";
+  workflow.status = "PENDING_REVIEW";
+  workflow.lastAction = "SUBMITTED";
+  workflow.lastActionBy = employeeId;
+  workflow.submittedAt = new Date();
+  workflow.reviewedAt = null;
+  workflow.reminderCount = 0;
+  workflow.lastReminderAt = null;
+  workflow.escalatedAt = null;
+
+  await workflow.save();
+
+  return workflow;
+};
+
+
+
+/**
+ * Move a pending workflow to its next authority.
+ * This follows the same hierarchy routing used by normal approval.
+ */
+const getNextReviewerForEscalation = async (workflow) => {
+  const reviewer = await Employee.findOne({
+    _id: workflow.currentReviewer,
+    status: "ACTIVE",
+  });
+
+  if (!reviewer) {
+    return null;
+  }
+
+  if (workflow.currentLevel === "TEAM_LEAD") {
+    if (!reviewer.reportingManager) return null;
+
+    return Employee.findOne({
+      _id: reviewer.reportingManager,
+      hierarchyLevel: "MANAGER",
+      status: "ACTIVE",
+    });
+  }
+
+  if (workflow.currentLevel === "MANAGER") {
+    if (!reviewer.department) return null;
+
+    const department = await Department.findById(reviewer.department)
+      .select("head");
+
+    if (!department?.head) return null;
+
+    return Employee.findOne({
+      _id: department.head,
+      hierarchyLevel: "DEPARTMENT_HEAD",
+      status: "ACTIVE",
+    });
+  }
+
+  if (workflow.currentLevel === "DEPARTMENT_HEAD") {
+    if (!reviewer.department) return null;
+
+    return Employee.findOne({
+      department: reviewer.department,
+      hierarchyLevel: "EXECUTIVE",
+      status: "ACTIVE",
+    });
+  }
+
+  // FRS special rule:
+  // unresolved Executive review after two reminders may go directly
+  // to the Super Admin.
+  if (workflow.currentLevel === "EXECUTIVE") {
+    let superAdmin = await Employee.findOne({
+      hierarchyLevel: "SUPER_ADMIN",
+      status: "ACTIVE",
+    });
+
+    // Fallback for projects where Super Admin is represented on User
+    // rather than Employee.hierarchyLevel.
+    if (!superAdmin) {
+      const superAdminUser = await User.findOne({
+        role: "SUPER_ADMIN",
+      }).select("employeeId");
+
+      if (superAdminUser?.employeeId) {
+        superAdmin = await Employee.findOne({
+          _id: superAdminUser.employeeId,
+          status: "ACTIVE",
+        });
+      }
+    }
+
+    return superAdmin;
+  }
+
+  // Governance is the top normal review level.
+  return null;
+};
+
+/**
+ * Process unattended workflows.
+ *
+ * Default:
+ *   24 hours -> first reminder
+ *   next 24 hours -> second reminder + escalation
+ *
+ * Configure with:
+ *   WORKFLOW_REVIEW_INTERVAL_HOURS
+ *
+ * The FRS specifies the reminder/escalation sequence but does not
+ * prescribe a fixed number of hours, so the timeout is configurable.
+ */
+const processWorkflowEscalations = async () => {
+  const reviewIntervalHours = Number(
+    process.env.WORKFLOW_REVIEW_INTERVAL_HOURS || 24
+  );
+
+  const reviewIntervalMs = reviewIntervalHours * 60 * 60 * 1000;
+  const now = new Date();
+
+  const workflows = await Workflow.find({
+    status: "PENDING_REVIEW",
+    currentReviewer: { $ne: null },
+    submittedAt: { $ne: null },
+  });
+
+  for (const workflow of workflows) {
+    const elapsedMs = now.getTime() - workflow.submittedAt.getTime();
+
+    if (elapsedMs < reviewIntervalMs) {
+      continue;
+    }
+
+    // First unattended interval -> reminder.
+    if (workflow.reminderCount < 1) {
+      workflow.reminderCount = 1;
+      workflow.lastReminderAt = now;
+      workflow.lastAction = "REMINDER";
+      workflow.reviewedAt = null;
+
+      // Start the second review window.
+      workflow.submittedAt = now;
+
+      await workflow.save();
+      continue;
+    }
+
+    // Second unattended interval -> second reminder, then escalation.
+    if (workflow.reminderCount === 1) {
+      workflow.reminderCount = 2;
+      workflow.lastReminderAt = now;
+
+      const nextReviewer = await getNextReviewerForEscalation(workflow);
+
+      if (!nextReviewer) {
+        // No higher authority exists (for example Governance).
+        // Keep the workflow pending instead of inventing a route.
+        workflow.lastAction = "REMINDER";
+        workflow.submittedAt = now;
+        await workflow.save();
+        continue;
+      }
+
+      workflow.currentReviewer = nextReviewer._id;
+      workflow.currentLevel =
+        nextReviewer.hierarchyLevel;
+      workflow.status = "PENDING_REVIEW";
+      workflow.lastAction = "ESCALATED";
+      workflow.lastActionBy = null;
+      workflow.submittedAt = now;
+      workflow.reviewedAt = null;
+      workflow.escalatedAt = now;
+      workflow.escalationCount += 1;
+      workflow.reminderCount = 0;
+
+      await workflow.save();
+    }
+  }
+};
+
 module.exports = {
   submitDocument,
   getPendingWorkflows,
-  getMySubmissions
+  getMySubmissions,
+  reviewWorkflow,
+  resubmitDocument,
+  processWorkflowEscalations,
 };
+
+
+
+
+
+
+
 
