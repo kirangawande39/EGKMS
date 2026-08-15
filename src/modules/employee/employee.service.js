@@ -338,6 +338,8 @@ const getEmployees = async (
 ) => {
   const query = {};
 
+  console.log("Get Employee call...........")
+
   if (filters.hierarchyLevel) {
     query.hierarchyLevel =
       filters.hierarchyLevel;
