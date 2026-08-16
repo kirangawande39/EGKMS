@@ -97,6 +97,7 @@ const createTeam = async (data, userId) => {
 const getTeams = async (filters = {}) => {
   const query = {};
 
+
   if (filters.department) {
     if (!mongoose.Types.ObjectId.isValid(filters.department)) {
       const error = new Error("Invalid Department ID.");
