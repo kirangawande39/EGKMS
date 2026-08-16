@@ -24,6 +24,8 @@ const createTeam = async (req, res, next) => {
 const getTeams = async (req, res, next) => {
   try {
     const teams = await teamService.getTeams(req.query);
+     
+    
 
     return res.status(200).json({
       success: true,
