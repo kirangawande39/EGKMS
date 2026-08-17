@@ -6,7 +6,7 @@ const accessControlService = require("./accessControl.service");
 const accessControl = (resource, action) => {
   return async (req, res, next) => {
     try {
-      
+
       if (!req.user) {
         console.log("❌ ACCESS CONTROL: req.user is undefined");
 
@@ -17,6 +17,16 @@ const accessControl = (resource, action) => {
       }
 
       const user = req.user;
+
+      const documentId =
+        req.params.documentId ||
+        req.params.workflowId ||
+        req.body?.documentId ||
+        req.body?.workflowId ||
+        req.query.documentId ||
+        req.query.workflowId ||
+        null;
+
       const departmentId =
         req.params.departmentId ||
         req.body?.department ||
@@ -40,17 +50,18 @@ const accessControl = (resource, action) => {
         user.employeeId ||
         null;
 
+     
       // console.log("RESOLVED employeeId:", employeeId);
 
 
-      console.log({
-        user,
-        resource,
-        action,
-        departmentId,
-        teamId,
-        employeeId,
-      });
+      // console.log({
+      //   user,
+      //   resource,
+      //   action,
+      //   departmentId,
+      //   teamId,
+      //   employeeId,
+      // });
 
       // console.log("Calling accessControlService.checkAccess()...");
 
@@ -61,6 +72,7 @@ const accessControl = (resource, action) => {
         departmentId,
         teamId,
         employeeId,
+        documentId,
       });
 
       // console.log("CHECK ACCESS RESULT:", result);
@@ -83,7 +95,7 @@ const accessControl = (resource, action) => {
 
       next();
     } catch (error) {
-  
+
       next(error);
     }
   };

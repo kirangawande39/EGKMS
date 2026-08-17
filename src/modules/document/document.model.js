@@ -90,10 +90,23 @@ const documentSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "Created by is required"],
     },
+
+    reviewComment: {
+      type: String,
+      default: null,
+      trim: true
+    },
   },
   {
     timestamps: true,
   }
 );
+
+documentSchema.index({ owner: 1 });
+documentSchema.index({ department: 1 });
+documentSchema.index({ team: 1 });
+documentSchema.index({ status: 1 });
+documentSchema.index({ documentType: 1 });
+documentSchema.index({ currentVersion: 1 });
 
 module.exports = mongoose.model("Document", documentSchema);

@@ -17,12 +17,14 @@ const {
 // Controller
 const departmentController = require("./department.controller");
 
+const accessControl = require("../permission/accessControl/accessControl.middleware")
+
 
 // CREATE DEPARTMENT
 router.post(
   "/",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "CREATE"),
   validate(createDepartmentValidator),
   departmentController.createDepartment
 );
@@ -32,7 +34,7 @@ router.post(
 router.get(
   "/",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "VIEW"),
   departmentController.getDepartments
 );
 
@@ -40,7 +42,7 @@ router.get(
 router.get(
   "/:departmentId",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "VIEW"),
   departmentController.getDepartmentById
 );
 
@@ -48,7 +50,7 @@ router.get(
 router.patch(
   "/:departmentId",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "EDIT"),
   validate(updateDepartmentValidator),
   departmentController.updateDepartment
 );
@@ -57,7 +59,7 @@ router.patch(
 router.patch(
   "/:departmentId/status",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "DELETE"),
   validate(
     require("joi").object({
       status: require("joi")
@@ -74,7 +76,7 @@ router.patch(
 router.delete(
   "/:departmentId",
   authenticate,
-  authorize("SUPER_ADMIN", "EXECUTIVE"),
+  accessControl("DEPARTMENT", "DELETE"),
   departmentController.deleteDepartment
 );
 

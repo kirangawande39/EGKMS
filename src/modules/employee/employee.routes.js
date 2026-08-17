@@ -1,8 +1,8 @@
 const router = require("express").Router();
-    
+
 const validate = require("../../middleware/validate.middleware");
 const { authenticate } = require("../../middleware/auth.middleware");
-const authorize = require("../../middleware/role.middleware");
+const accessControl = require("../permission/accessControl/accessControl.middleware");
 const {
     createEmployeeValidator
 } = require("./employee.validator");
@@ -13,7 +13,7 @@ const employeeController = require("./employee.controller");
 router.post(
     "/",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "CREATE"),
     validate(createEmployeeValidator),
     employeeController.createEmployee
 );
@@ -22,7 +22,7 @@ router.post(
 router.get(
     "/",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployees
 );
 
@@ -30,7 +30,7 @@ router.get(
 router.get(
     "/email/:email",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployeeByEmail
 );
 
@@ -38,7 +38,7 @@ router.get(
 router.get(
     "/:employeeId",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployeeById
 );
 
@@ -46,7 +46,7 @@ router.get(
 router.patch(
     "/:employeeId",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "EDIT"),
     employeeController.updateEmployee
 );
 
@@ -54,7 +54,7 @@ router.patch(
 router.patch(
     "/:employeeId/status",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "EDIT"),
     employeeController.updateEmployeeStatus
 );
 
@@ -62,7 +62,7 @@ router.patch(
 router.delete(
     "/:employeeId",
     authenticate,
-    authorize("SUPER_ADMIN"),
+    accessControl("EMPLOYEE", "DELETE"),
     employeeController.deleteEmployee
 );
 

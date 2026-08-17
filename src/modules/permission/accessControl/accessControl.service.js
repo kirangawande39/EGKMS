@@ -4,6 +4,7 @@ const Permission = require("../permission/permission.model");
 const RolePermission = require("../rolePermission/rolePermission.model");
 const ACL = require("../acl/acl.model");
 const Employee = require("../../employee/employee.model");
+const Document = require("../../document/document.model");
 
 /**
  * Check whether a user has the requested permission.
@@ -18,6 +19,8 @@ const Employee = require("../../employee/employee.model");
  * ↓
  * RolePermission
  * ↓
+ * Document Context
+ * ↓
  * ACL
  * ↓
  * ALLOW / DENY
@@ -29,6 +32,7 @@ const checkAccess = async ({
   departmentId = null,
   teamId = null,
   employeeId = null,
+  documentId = null,
 }) => {
   if (!user) {
     return {
@@ -44,11 +48,10 @@ const checkAccess = async ({
     };
   }
 
+ 
+
   /*
    * 1. Hierarchy Validation
-   *
-   * User.employeeId contains the Employee ObjectId.
-   * hierarchyLevel is stored in Employee.
    */
 
   const employee = await Employee.findById(user.employeeId).select(
@@ -90,12 +93,6 @@ const checkAccess = async ({
 
   /*
    * 3. RolePermission Validation
-   *
-   * Example:
-   *
-   * TEAM_LEAD
-   * ↓
-   * TEAM.CREATE
    */
 
   const rolePermission = await RolePermission.findOne({
@@ -113,7 +110,7 @@ const checkAccess = async ({
   }
 
   /*
-   * 4. ACL Validation
+   * 4. ACL Context Validation
    *
    * Most specific → least specific:
    *
@@ -136,13 +133,46 @@ const checkAccess = async ({
     return new mongoose.Types.ObjectId(id);
   };
 
-  const employeeObjectId = objectIdOrNull(employeeId);
-  const teamObjectId = objectIdOrNull(teamId);
-  const departmentObjectId = objectIdOrNull(departmentId);
+  let employeeObjectId = objectIdOrNull(employeeId);
+  let teamObjectId = objectIdOrNull(teamId);
+  let departmentObjectId = objectIdOrNull(departmentId);
+  const documentObjectId = objectIdOrNull(documentId);
 
   /*
-   * Employee-level ACL
+   * 4.1 Resolve Document Context
+   *
+   * Workflow routes provide documentId/workflowId,
+   * not departmentId/teamId.
+   *
+   * Therefore, when a document is involved,
+   * resolve its department and team first.
    */
+
+  if (documentObjectId) {
+    const document = await Document.findById(documentObjectId).select(
+      "department team"
+    );
+
+    if (!document) {
+      return {
+        allowed: false,
+        reason: "Document not found.",
+      };
+    }
+
+    if (!departmentObjectId && document.department) {
+      departmentObjectId = objectIdOrNull(document.department);
+    }
+
+    if (!teamObjectId && document.team) {
+      teamObjectId = objectIdOrNull(document.team);
+    }
+  }
+
+  /*
+   * 4.2 Employee-level ACL
+   */
+
 
   let acl = null;
 
@@ -158,7 +188,7 @@ const checkAccess = async ({
   }
 
   /*
-   * Team-level ACL
+   * 4.3 Team-level ACL
    */
 
   if (!acl && teamObjectId) {
@@ -173,7 +203,7 @@ const checkAccess = async ({
   }
 
   /*
-   * Department-level ACL
+   * 4.4 Department-level ACL
    */
 
   if (!acl && departmentObjectId) {
@@ -188,7 +218,7 @@ const checkAccess = async ({
   }
 
   /*
-   * Global hierarchy-level ACL
+   * 4.5 Global hierarchy-level ACL
    */
 
   if (!acl) {
@@ -205,7 +235,7 @@ const checkAccess = async ({
   }
 
   /*
-   * No ACL rule means DENY.
+   * 5. No ACL Rule = DENY
    */
 
   if (!acl) {
@@ -219,8 +249,9 @@ const checkAccess = async ({
   }
 
   /*
-   * 5. Final ALLOW / DENY
+   * 6. Final ALLOW / DENY
    */
+
 
   if (acl.effect === "DENY") {
     return {

@@ -52,12 +52,17 @@ const getMySubmissions = async (req, res, next) => {
 const reviewWorkflow = async (req, res, next) => {
   try {
     const { workflowId } = req.params;
-    const { action } = req.body;
+
+    const {
+      action,
+      reviewComment,
+    } = req.body;
 
     const workflow = await workflowService.reviewWorkflow({
       workflowId,
       reviewerId: req.user.employeeId,
       action,
+      reviewComment,
     });
 
     let message = "Document returned for revision successfully.";

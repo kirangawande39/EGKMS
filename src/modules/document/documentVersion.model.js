@@ -6,6 +6,7 @@ const documentVersionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Document",
       required: [true, "Document is required"],
+      index: true,
     },
 
     version: {
@@ -22,6 +23,25 @@ const documentVersionSchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
+      default: null,
+    },
+
+    documentType: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: null,
+    },
+
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+    },
+
+    team: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
       default: null,
     },
 
@@ -65,6 +85,8 @@ documentVersionSchema.index(
   { document: 1, version: 1 },
   { unique: true }
 );
+
+documentVersionSchema.index({ document: 1, createdAt: -1 });
 
 module.exports = mongoose.model(
   "DocumentVersion",

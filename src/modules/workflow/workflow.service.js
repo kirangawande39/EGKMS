@@ -210,16 +210,15 @@ const getPendingWorkflows = async ({ userId }) => {
 };
 
 const getMySubmissions = async (user) => {
-  // 1. Logged-in User find karo
-
+  // 1. Logged-in user validation
   if (!user) {
     const error = new Error("User not found.");
     error.statusCode = 404;
     throw error;
   }
 
-  // 2. User se linked Employee find karo
-  const employee = await Employee.findById(user.employeeId);
+  // 2. Linked Employee find karo
+  const employee = await Employee.findById(user.employeeId).select("_id");
 
   if (!employee) {
     const error = new Error("Employee not found.");
@@ -227,9 +226,16 @@ const getMySubmissions = async (user) => {
     throw error;
   }
 
-  // 3. Employee ke submitted workflows find karo
+  // 3. Employee ke owned documents find karo
+  const documents = await Document.find({
+    owner: employee._id,
+  }).select("_id");
+
+  const documentIds = documents.map((document) => document._id);
+
+  // 4. In documents ke workflows find karo
   const workflows = await Workflow.find({
-    lastActionBy: employee._id,
+    document: { $in: documentIds },
   })
     .populate({
       path: "document",
@@ -261,13 +267,14 @@ const getMySubmissions = async (user) => {
     error.statusCode = 404;
     throw error;
   }
+
   return workflows;
 };
-
 const reviewWorkflow = async ({
   workflowId,
   reviewerId,
   action,
+  reviewComment,
 }) => {
   if (!mongoose.Types.ObjectId.isValid(workflowId)) {
     const error = new Error("Invalid workflow ID.");
@@ -312,6 +319,20 @@ const reviewWorkflow = async ({
     throw error;
   }
 
+  /*
+   * RETURN and REJECT must have a reason.
+   */
+  if (
+    (action === "RETURN" || action === "REJECT") &&
+    (!reviewComment || !reviewComment.trim())
+  ) {
+    const error = new Error(
+      `Review comment is required when action is ${action}.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   const reviewer = await Employee.findOne({
     _id: reviewerId,
     status: "ACTIVE",
@@ -347,6 +368,7 @@ const reviewWorkflow = async ({
 
     await Document.findByIdAndUpdate(workflow.document, {
       status: "REVISION",
+      reviewComment: reviewComment.trim(),
     });
 
     return workflow;
@@ -367,6 +389,7 @@ const reviewWorkflow = async ({
 
     await Document.findByIdAndUpdate(workflow.document, {
       status: "REJECTED",
+      reviewComment: reviewComment.trim(),
     });
 
     return workflow;
@@ -409,6 +432,11 @@ const reviewWorkflow = async ({
       workflow.escalatedAt = null;
 
       await workflow.save();
+
+      // Clear previous revision/rejection comment
+      await Document.findByIdAndUpdate(workflow.document, {
+        reviewComment: null,
+      });
 
       return workflow;
     }
@@ -463,6 +491,11 @@ const reviewWorkflow = async ({
 
       await workflow.save();
 
+      // Clear previous revision/rejection comment
+      await Document.findByIdAndUpdate(workflow.document, {
+        reviewComment: null,
+      });
+
       return workflow;
     }
 
@@ -498,6 +531,11 @@ const reviewWorkflow = async ({
 
       await workflow.save();
 
+      // Clear previous revision/rejection comment
+      await Document.findByIdAndUpdate(workflow.document, {
+        reviewComment: null,
+      });
+
       return workflow;
     }
 
@@ -532,6 +570,11 @@ const reviewWorkflow = async ({
 
       await workflow.save();
 
+      // Clear previous revision/rejection comment
+      await Document.findByIdAndUpdate(workflow.document, {
+        reviewComment: null,
+      });
+
       return workflow;
     }
 
@@ -554,6 +597,7 @@ const reviewWorkflow = async ({
 
       await Document.findByIdAndUpdate(workflow.document, {
         status: "PUBLISHED",
+        reviewComment: null,
       });
 
       return workflow;
@@ -574,6 +618,7 @@ const reviewWorkflow = async ({
 
       await Document.findByIdAndUpdate(workflow.document, {
         status: "PUBLISHED",
+        reviewComment: null,
       });
 
       return workflow;
