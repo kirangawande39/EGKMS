@@ -20,26 +20,18 @@ passport.use(
     },
 
     async (email, password, done) => {
-      console.time("PASSPORT LOGIN TOTAL");
 
       try {
-        console.time("EMAIL NORMALIZATION");
 
         const normalizedEmail = email
           .toLowerCase()
           .trim();
-
-        console.timeEnd("EMAIL NORMALIZATION");
-
-
         // Get user with password
-        console.time("USER QUERY");
 
         const user = await User.findOne({
           email: normalizedEmail,
         }).select("+password");
 
-        console.timeEnd("USER QUERY");
 
 
         if (!user) {
@@ -62,17 +54,12 @@ passport.use(
 
 
         // Get linked employee
-        console.time("EMPLOYEE QUERY");
-
-        const employee = await Employee.findById(
-          user.employeeId
+        const employee = await Employee.findById(user.employeeId).select(
+          "_id employeeId firstName lastName email hierarchyLevel department team reportingManager status"
         );
-
-        console.timeEnd("EMPLOYEE QUERY");
 
 
         if (!employee) {
-          console.timeEnd("PASSPORT LOGIN TOTAL");
 
           return done(null, false, {
             message: "Employee record not found.",
@@ -92,7 +79,6 @@ passport.use(
 
         // Check email verification
         if (!user.isEmailVerified) {
-          console.timeEnd("PASSPORT LOGIN TOTAL");
 
           return done(null, false, {
             message: "Please verify your email first.",
@@ -101,7 +87,6 @@ passport.use(
 
 
         // Compare password
-        console.time("BCRYPT PASSWORD CHECK");
 
         const isPasswordValid =
           await bcrypt.compare(
@@ -109,21 +94,14 @@ passport.use(
             user.password
           );
 
-        console.timeEnd("BCRYPT PASSWORD CHECK");
 
 
         if (!isPasswordValid) {
 
-          console.time("FAILED LOGIN SAVE");
 
           user.failedLoginAttempts += 1;
 
           await user.save();
-
-          console.timeEnd("FAILED LOGIN SAVE");
-
-          console.timeEnd("PASSPORT LOGIN TOTAL");
-
           return done(null, false, {
             message: "Invalid email or password.",
           });
@@ -131,7 +109,6 @@ passport.use(
 
 
         // Reset failed attempts after successful login
-        console.time("SUCCESS USER SAVE");
 
         if (
           user.failedLoginAttempts !== 0 ||
@@ -143,21 +120,15 @@ passport.use(
           await user.save();
         }
 
-        console.timeEnd("SUCCESS USER SAVE");
-
-
         // Attach employee information
-        user._employee = employee;
+        user.employeeId = employee;
 
+        console.log("User:", user)
 
-        console.timeEnd("PASSPORT LOGIN TOTAL");
 
         return done(null, user);
 
       } catch (error) {
-
-        console.timeEnd("PASSPORT LOGIN TOTAL");
-
         return done(error);
       }
     }
@@ -253,6 +224,8 @@ passport.use(
 
         // Attach current employee information
         user._employee = employee;
+
+        console.log("User:", user)
 
         return done(null, user);
       } catch (error) {
