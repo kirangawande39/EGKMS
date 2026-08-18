@@ -50,21 +50,7 @@ const accessControl = (resource, action) => {
         user.employeeId ||
         null;
 
-     
-      // console.log("RESOLVED employeeId:", employeeId);
-
-
-      // console.log({
-      //   user,
-      //   resource,
-      //   action,
-      //   departmentId,
-      //   teamId,
-      //   employeeId,
-      // });
-
-      // console.log("Calling accessControlService.checkAccess()...");
-
+    
       const result = await accessControlService.checkAccess({
         user,
         resource,

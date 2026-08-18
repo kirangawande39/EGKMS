@@ -116,7 +116,7 @@ passport.use(
         // Attach employee information
         user.employeeId = employee;
 
-        console.log("User:", user)
+        // console.log("User:", user)
 
 
         return done(null, user);

@@ -36,6 +36,13 @@ router.get(
   accessControl("DOCUMENT", "VIEW"),
   documentController.getDocuments
 );
+// View document file
+router.get(
+  "/:documentId/view",
+  authenticate,
+  accessControl("DOCUMENT", "VIEW"),
+  documentController.viewDocument
+);
 
 // Get one
 router.get(
@@ -44,6 +51,7 @@ router.get(
   accessControl("DOCUMENT", "VIEW"),
   documentController.getDocumentById
 );
+
 
 // Version history
 router.get(

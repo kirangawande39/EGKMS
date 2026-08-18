@@ -553,6 +553,52 @@ const deleteDocument = async ({ documentId, userId }) => {
   return true;
 };
 
+const viewDocument = async ({ documentId, userId }) => {
+  if (!mongoose.Types.ObjectId.isValid(documentId)) {
+    throw getStatusCode(new Error("Invalid document ID"), 400);
+  }
+
+  const { employee } = await getAuthenticatedEmployee(userId);
+
+  const scope = buildDocumentScope(employee);
+
+  const document = await Document.findOne({
+    _id: documentId,
+    ...scope,
+  }).select("+fileUrl +filePublicId");
+
+  if (!document) {
+    throw getStatusCode(
+      new Error("Document not found or access denied"),
+      404
+    );
+  }
+
+  if (!document.fileUrl) {
+    throw getStatusCode(
+      new Error("Document file not found"),
+      404
+    );
+  }
+
+  const response = await fetch(document.fileUrl);
+
+  if (!response.ok) {
+    throw getStatusCode(
+      new Error("Unable to retrieve document file"),
+      502
+    );
+  }
+
+  const fileBuffer = Buffer.from(await response.arrayBuffer());
+
+  return {
+    file: fileBuffer,
+    contentType: "application/pdf",
+    fileName: document.fileName,
+  };
+};
+
 module.exports = {
   createDocument,
   updateDocument,
@@ -563,4 +609,5 @@ module.exports = {
   archiveDocument,
   restoreDocument,
   deleteDocument,
+  viewDocument
 };

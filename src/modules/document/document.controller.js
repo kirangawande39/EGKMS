@@ -12,6 +12,8 @@ const createDocument = async (req, res, next) => {
       team,
     } = req.body;
 
+    console.log("File:",req.file);
+
     const document = await documentService.createDocument({
       userId: getUserId(req),
       title,
@@ -180,6 +182,24 @@ const deleteDocument = async (req, res, next) => {
     next(error);
   }
 };
+const viewDocument = async (req, res, next) => {
+  try {
+    const result = await documentService.viewDocument({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${result.fileName}"`
+    );
+
+    return res.send(result.file);
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createDocument,
@@ -191,4 +211,5 @@ module.exports = {
   archiveDocument,
   restoreDocument,
   deleteDocument,
+  viewDocument,
 };

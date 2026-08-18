@@ -42,11 +42,13 @@ const documentSchema = new mongoose.Schema(
     fileUrl: {
       type: String,
       required: [true, "Document file is required"],
+      select: false,
     },
 
     filePublicId: {
       type: String,
       required: [true, "Document file reference is required"],
+      select: false,
     },
 
     fileName: {
@@ -94,7 +96,7 @@ const documentSchema = new mongoose.Schema(
     reviewComment: {
       type: String,
       default: null,
-      trim: true
+      trim: true,
     },
   },
   {
@@ -102,6 +104,7 @@ const documentSchema = new mongoose.Schema(
   }
 );
 
+// Indexes
 documentSchema.index({ owner: 1 });
 documentSchema.index({ department: 1 });
 documentSchema.index({ team: 1 });
