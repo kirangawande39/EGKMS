@@ -185,7 +185,8 @@ const updateDocument = async ({
     throw getStatusCode(new Error("Invalid document ID"), 400);
   }
 
-  const document = await Document.findById(documentId);
+  const document = await Document.findById(documentId)
+  .select("+fileUrl +filePublicId");
 
   if (!document) {
     throw getStatusCode(new Error("Document not found"), 404);
@@ -590,6 +591,7 @@ const viewDocument = async ({ documentId, userId }) => {
     );
   }
 
+  
   const fileBuffer = Buffer.from(await response.arrayBuffer());
 
   return {
