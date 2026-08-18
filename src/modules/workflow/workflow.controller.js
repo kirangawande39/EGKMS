@@ -111,7 +111,7 @@ const resubmitDocument = async (req, res, next) => {
 
     const workflow = await workflowService.resubmitDocument({
       documentId,
-      employeeId: req.user.employeeId,
+      employeeId: req.user.employeeId._id,
     });
 
     return res.status(200).json({

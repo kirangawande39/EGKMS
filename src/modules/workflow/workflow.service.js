@@ -644,11 +644,16 @@ const resubmitDocument = async ({
 
   const document = await Document.findById(documentId);
 
+  // console.log("Document:",document)
+
   if (!document) {
     const error = new Error("Document not found.");
     error.statusCode = 404;
     throw error;
   }
+
+  // console.log("document owner id :",document.owner)
+  // console.log("employeeId id :",employeeId)
 
   // Only the document owner can resubmit
   if (
