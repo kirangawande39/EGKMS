@@ -76,7 +76,6 @@ passport.use(
           });
         }
 
-
         // Check email verification
         if (!user.isEmailVerified) {
 
@@ -84,10 +83,7 @@ passport.use(
             message: "Please verify your email first.",
           });
         }
-
-
         // Compare password
-
         const isPasswordValid =
           await bcrypt.compare(
             password,
@@ -106,10 +102,7 @@ passport.use(
             message: "Invalid email or password.",
           });
         }
-
-
         // Reset failed attempts after successful login
-
         if (
           user.failedLoginAttempts !== 0 ||
           user.lockUntil !== null

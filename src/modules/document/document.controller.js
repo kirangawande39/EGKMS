@@ -1,5 +1,7 @@
 const documentService = require("./document.service");
 
+const getUserId = (req) => req.user?._id || req.user?.id;
+
 const createDocument = async (req, res, next) => {
   try {
     const {
@@ -11,7 +13,7 @@ const createDocument = async (req, res, next) => {
     } = req.body;
 
     const document = await documentService.createDocument({
-      userId: req.user.id,
+      userId: getUserId(req),
       title,
       description,
       documentType,
@@ -30,13 +32,52 @@ const createDocument = async (req, res, next) => {
   }
 };
 
+const getDocuments = async (req, res, next) => {
+  try {
+    const result = await documentService.getDocuments({
+      userId: getUserId(req),
+      page: req.query.page,
+      limit: req.query.limit,
+      search: req.query.search,
+      documentType: req.query.documentType,
+      status: req.query.status,
+      department: req.query.department,
+      team: req.query.team,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Documents fetched successfully.",
+      data: result.documents,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getDocumentById = async (req, res, next) => {
+  try {
+    const document = await documentService.getDocumentById({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document fetched successfully.",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateDocument = async (req, res, next) => {
   try {
-    const { documentId } = req.params;
-
     const document = await documentService.updateDocument({
-      documentId,
-      userId: req.user._id,
+      documentId: req.params.documentId,
+      userId: getUserId(req),
       title: req.body.title,
       description: req.body.description,
       documentType: req.body.documentType,
@@ -55,7 +96,99 @@ const updateDocument = async (req, res, next) => {
   }
 };
 
+const getDocumentVersions = async (req, res, next) => {
+  try {
+    const versions = await documentService.getDocumentVersions({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document version history fetched successfully.",
+      data: versions,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateDocumentStatus = async (req, res, next) => {
+  try {
+    const document = await documentService.updateDocumentStatus({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+      status: req.body.status,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document status updated successfully.",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const archiveDocument = async (req, res, next) => {
+  try {
+    const document = await documentService.archiveDocument({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document archived successfully.",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const restoreDocument = async (req, res, next) => {
+  try {
+    const document = await documentService.restoreDocument({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document restored successfully.",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteDocument = async (req, res, next) => {
+  try {
+    await documentService.deleteDocument({
+      documentId: req.params.documentId,
+      userId: getUserId(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Document deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createDocument,
-  updateDocument
+  getDocuments,
+  getDocumentById,
+  updateDocument,
+  getDocumentVersions,
+  updateDocumentStatus,
+  archiveDocument,
+  restoreDocument,
+  deleteDocument,
 };

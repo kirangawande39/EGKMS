@@ -1,10 +1,112 @@
-const Document = require("./document.model");
+const mongoose = require("mongoose");
 
+const Document = require("./document.model");
 const Employee = require("../employee/employee.model");
 const Department = require("../department/department.model");
 const Team = require("../team/team.model");
 const User = require("../auth/auth.model");
 const DocumentVersion = require("./documentVersion.model");
+
+const getStatusCode = (error, fallback = 400) => {
+  error.statusCode = error.statusCode || fallback;
+  return error;
+};
+
+const getAuthenticatedEmployee = async (userId) => {
+  const user = await User.findById(userId).select("employeeId");
+
+  if (!user) {
+    throw getStatusCode(new Error("User not found"), 404);
+  }
+
+  const employee = await Employee.findOne({
+    _id: user.employeeId,
+    status: "ACTIVE",
+  });
+
+  if (!employee) {
+    throw getStatusCode(new Error("Active employee not found"), 404);
+  }
+
+  return { user, employee };
+};
+
+const ensureObjectId = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw getStatusCode(new Error(`Invalid ${fieldName} ID`), 400);
+  }
+};
+
+const validateDepartmentAndTeam = async ({ department, team }) => {
+  ensureObjectId(department, "department");
+  ensureObjectId(team, "team");
+
+  let departmentDoc = null;
+  let teamDoc = null;
+
+  if (department) {
+    departmentDoc = await Department.findOne({
+      _id: department,
+      status: "ACTIVE",
+    });
+
+    if (!departmentDoc) {
+      throw getStatusCode(
+        new Error("Department not found or inactive"),
+        404
+      );
+    }
+  }
+
+  if (team) {
+    teamDoc = await Team.findOne({
+      _id: team,
+      status: "ACTIVE",
+    });
+
+    if (!teamDoc) {
+      throw getStatusCode(
+        new Error("Team not found or inactive"),
+        404
+      );
+    }
+
+    if (
+      department &&
+      teamDoc.department.toString() !== department.toString()
+    ) {
+      throw getStatusCode(
+        new Error(
+          "Selected team does not belong to the selected department"
+        ),
+        400
+      );
+    }
+
+    if (!department && teamDoc.department) {
+      departmentDoc = await Department.findOne({
+        _id: teamDoc.department,
+        status: "ACTIVE",
+      });
+
+      if (!departmentDoc) {
+        throw getStatusCode(
+          new Error("Team belongs to an inactive or missing department"),
+          400
+        );
+      }
+    }
+  }
+
+  return {
+    department: departmentDoc,
+    team: teamDoc,
+  };
+};
 
 const createDocument = async ({
   userId,
@@ -15,63 +117,14 @@ const createDocument = async ({
   team,
   file,
 }) => {
-  // 1. File is required
   if (!file) {
-    throw new Error("Document file is required");
+    throw getStatusCode(new Error("Document file is required"), 400);
   }
 
-  // 2. Find logged-in User
-  const user = await User.findById(userId).select("employeeId");
+  const { user, employee } = await getAuthenticatedEmployee(userId);
 
-  if (!user) {
-    throw new Error("User not found");
-  }
+  await validateDepartmentAndTeam({ department, team });
 
-  // 3. Find linked active Employee
-  const employee = await Employee.findOne({
-    _id: user.employeeId,
-    status: "ACTIVE",
-  });
-
-  if (!employee) {
-    throw new Error("Active employee not found");
-  }
-
-  // 4. Validate Department
-  if (department) {
-    const departmentExists = await Department.findOne({
-      _id: department,
-      status: "ACTIVE",
-    });
-
-    if (!departmentExists) {
-      throw new Error("Department not found or inactive");
-    }
-  }
-
-  // 5. Validate Team
-  if (team) {
-    const teamExists = await Team.findOne({
-      _id: team,
-      status: "ACTIVE",
-    });
-
-    if (!teamExists) {
-      throw new Error("Team not found or inactive");
-    }
-
-    // Team must belong to selected Department
-    if (
-      department &&
-      teamExists.department.toString() !== department.toString()
-    ) {
-      throw new Error(
-        "Selected team does not belong to the selected department"
-      );
-    }
-  }
-
-  // 6. Create Document
   const document = await Document.create({
     title,
     description: description || null,
@@ -97,6 +150,27 @@ const createDocument = async ({
   return document;
 };
 
+const parseVersion = (version) => {
+  const match = /^v(\d+)\.(\d+)$/.exec(version || "");
+
+  if (!match) {
+    throw getStatusCode(
+      new Error("Invalid document version format"),
+      500
+    );
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+  };
+};
+
+const getNextVersion = (currentVersion) => {
+  const { major, minor } = parseVersion(currentVersion || "v1.0");
+  return `v${major}.${minor + 1}`;
+};
+
 const updateDocument = async ({
   documentId,
   userId,
@@ -107,125 +181,56 @@ const updateDocument = async ({
   team,
   file,
 }) => {
+  if (!mongoose.Types.ObjectId.isValid(documentId)) {
+    throw getStatusCode(new Error("Invalid document ID"), 400);
+  }
+
   const document = await Document.findById(documentId);
 
   if (!document) {
-    const error = new Error("Document not found");
-    error.statusCode = 404;
-    throw error;
+    throw getStatusCode(new Error("Document not found"), 404);
   }
 
-  // Find logged-in User
-  const user = await User.findById(userId).select("employeeId");
+  const { employee } = await getAuthenticatedEmployee(userId);
 
-  if (!user) {
-    const error = new Error("User not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  // Find active employee
-  const employee = await Employee.findOne({
-    _id: user.employeeId,
-    status: "ACTIVE",
-  });
-
-  if (!employee) {
-    const error = new Error("Active employee not found");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  // Only document owner can modify the document
   if (document.owner.toString() !== employee._id.toString()) {
-    const error = new Error(
-      "Only the document owner can modify this document."
+    throw getStatusCode(
+      new Error("Only the document owner can modify this document."),
+      403
     );
-    error.statusCode = 403;
-    throw error;
   }
 
-  // Document can only be modified during revision
   if (document.status !== "REVISION") {
-    const error = new Error(
-      "Document can only be modified when it is in REVISION status."
+    throw getStatusCode(
+      new Error(
+        "Document can only be modified when it is in REVISION status."
+      ),
+      400
     );
-    error.statusCode = 400;
-    throw error;
   }
 
-  // Department validation
-  if (department) {
-    const departmentExists = await Department.findOne({
-      _id: department,
-      status: "ACTIVE",
-    });
-
-    if (!departmentExists) {
-      const error = new Error(
-        "Department not found or inactive"
-      );
-      error.statusCode = 404;
-      throw error;
-    }
-  }
-
-  // Team validation
-  if (team) {
-    const teamExists = await Team.findOne({
-      _id: team,
-      status: "ACTIVE",
-    });
-
-    if (!teamExists) {
-      const error = new Error(
-        "Team not found or inactive"
-      );
-      error.statusCode = 404;
-      throw error;
-    }
-
-    if (
-      department &&
-      teamExists.department.toString() !== department.toString()
-    ) {
-      const error = new Error(
-        "Selected team does not belong to the selected department"
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-  }
-
-  /*
-   * Create next version
-   *
-   * v1.0 → v1.1
-   * v1.1 → v1.2
-   */
-  const currentVersion = document.currentVersion || "v1.0";
-
-  const versionNumber = Number(
-    currentVersion.replace("v1.", "")
-  );
-
-  const nextVersion = `v1.${versionNumber + 1}`;
-
-  // File is required for a new version
   if (!file) {
-    const error = new Error(
-      "Updated document file is required to create a new version."
+    throw getStatusCode(
+      new Error(
+        "Updated document file is required to create a new version."
+      ),
+      400
     );
-    error.statusCode = 400;
-    throw error;
   }
 
-  // Preserve previous version
+  await validateDepartmentAndTeam({ department, team });
+
+  const currentVersion = document.currentVersion || "v1.0";
+  const nextVersion = getNextVersion(currentVersion);
+
   await DocumentVersion.create({
     document: document._id,
     version: currentVersion,
     title: document.title,
     description: document.description,
+    documentType: document.documentType,
+    department: document.department,
+    team: document.team,
     fileUrl: document.fileUrl,
     filePublicId: document.filePublicId,
     fileName: document.fileName,
@@ -234,12 +239,13 @@ const updateDocument = async ({
     createdBy: employee._id,
   });
 
-  // Update current document with new version
   document.title = title ?? document.title;
+
   document.description =
     description !== undefined
       ? description
       : document.description;
+
   document.documentType =
     documentType ?? document.documentType;
 
@@ -258,7 +264,6 @@ const updateDocument = async ({
   document.fileName = file.originalname;
   document.fileType = file.mimetype;
   document.fileSize = file.size;
-
   document.currentVersion = nextVersion;
 
   await document.save();
@@ -266,7 +271,296 @@ const updateDocument = async ({
   return document;
 };
 
+const buildDocumentScope = (employee) => {
+  if (employee.hierarchyLevel === "SUPER_ADMIN") {
+    return {};
+  }
+
+  const scope = [
+    { owner: employee._id },
+  ];
+
+  if (employee.department) {
+    scope.push({ department: employee.department });
+  }
+
+  if (employee.team) {
+    scope.push({ team: employee.team });
+  }
+
+  return { $or: scope };
+};
+
+const getDocuments = async ({
+  userId,
+  page = 1,
+  limit = 20,
+  search,
+  documentType,
+  status,
+  department,
+  team,
+}) => {
+  const { employee } = await getAuthenticatedEmployee(userId);
+
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+
+  const filters = [buildDocumentScope(employee)];
+
+  if (search) {
+    const regex = new RegExp(
+      String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i"
+    );
+
+    filters.push({
+      $or: [
+        { title: regex },
+        { description: regex },
+        { fileName: regex },
+      ],
+    });
+  }
+
+  if (documentType) {
+    filters.push({ documentType: String(documentType).toUpperCase() });
+  }
+
+  if (status) {
+    filters.push({ status: String(status).toUpperCase() });
+  }
+
+  if (department) {
+    ensureObjectId(department, "department");
+    filters.push({ department });
+  }
+
+  if (team) {
+    ensureObjectId(team, "team");
+    filters.push({ team });
+  }
+
+  const query = filters.length === 1
+    ? filters[0]
+    : { $and: filters };
+
+  const skip = (safePage - 1) * safeLimit;
+
+  const [documents, total] = await Promise.all([
+    Document.find(query)
+      .populate("owner", "employeeId firstName lastName email hierarchyLevel")
+      .populate("department", "name code status")
+      .populate("team", "name teamLead status")
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(safeLimit),
+
+    Document.countDocuments(query),
+  ]);
+
+  return {
+    documents,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+    },
+  };
+};
+
+const getDocumentById = async ({ documentId, userId }) => {
+  if (!mongoose.Types.ObjectId.isValid(documentId)) {
+    throw getStatusCode(new Error("Invalid document ID"), 400);
+  }
+
+  const { employee } = await getAuthenticatedEmployee(userId);
+
+  const scope = buildDocumentScope(employee);
+
+  const document = await Document.findOne({
+    _id: documentId,
+    ...scope,
+  })
+    .populate("owner", "employeeId firstName lastName email hierarchyLevel")
+    .populate("department", "name code status")
+    .populate("team", "name teamLead status")
+    .populate("createdBy", "email accountStatus");
+
+  if (!document) {
+    throw getStatusCode(
+      new Error("Document not found or access denied"),
+      404
+    );
+  }
+
+  return document;
+};
+
+const getDocumentVersions = async ({ documentId, userId }) => {
+  const currentDocument = await getDocumentById({ documentId, userId });
+
+  const history = await DocumentVersion.find({ document: documentId })
+    .populate("createdBy", "employeeId firstName lastName email hierarchyLevel")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // DocumentVersion stores previous versions. The current document itself
+  // represents the latest version, so include it in the history response too.
+  const currentVersion = {
+    _id: currentDocument._id,
+    document: currentDocument._id,
+    version: currentDocument.currentVersion,
+    title: currentDocument.title,
+    description: currentDocument.description,
+    documentType: currentDocument.documentType,
+    department: currentDocument.department,
+    team: currentDocument.team,
+    fileUrl: currentDocument.fileUrl,
+    filePublicId: currentDocument.filePublicId,
+    fileName: currentDocument.fileName,
+    fileType: currentDocument.fileType,
+    fileSize: currentDocument.fileSize,
+    createdBy: currentDocument.createdBy,
+    createdAt: currentDocument.updatedAt,
+    updatedAt: currentDocument.updatedAt,
+    isCurrent: true,
+  };
+
+  return [
+    currentVersion,
+    ...history.map((version) => ({
+      ...version,
+      isCurrent: false,
+    })),
+  ];
+};
+
+const updateDocumentStatus = async ({
+  documentId,
+  userId,
+  status,
+}) => {
+  const document = await getDocumentById({ documentId, userId });
+
+  const allowedTransitions = {
+    PUBLISHED: ["ACTIVE"],
+    ACTIVE: ["AMENDMENT"],
+    AMENDMENT: ["ACTIVE"],
+  };
+
+  if (!allowedTransitions[document.status]?.includes(status)) {
+    throw getStatusCode(
+      new Error(
+        `Invalid document lifecycle transition: ${document.status} → ${status}`
+      ),
+      400
+    );
+  }
+
+  document.status = status;
+  await document.save();
+
+  return document;
+};
+
+const archiveDocument = async ({ documentId, userId }) => {
+  const document = await getDocumentById({ documentId, userId });
+
+  if (!["PUBLISHED", "ACTIVE", "AMENDMENT"].includes(document.status)) {
+    throw getStatusCode(
+      new Error(
+        "Only Published, Active, or Amendment documents can be archived."
+      ),
+      400
+    );
+  }
+
+  document.status = "ARCHIVED";
+  await document.save();
+
+  return document;
+};
+
+const restoreDocument = async ({ documentId, userId }) => {
+  const document = await Document.findById(documentId);
+
+  if (!document) {
+    throw getStatusCode(new Error("Document not found"), 404);
+  }
+
+  const { employee } = await getAuthenticatedEmployee(userId);
+
+  if (employee.hierarchyLevel !== "SUPER_ADMIN") {
+    throw getStatusCode(
+      new Error("Only Super Admin can restore archived documents."),
+      403
+    );
+  }
+
+  if (document.status !== "ARCHIVED") {
+    throw getStatusCode(
+      new Error("Only archived documents can be restored."),
+      400
+    );
+  }
+
+  document.status = "ACTIVE";
+  await document.save();
+
+  return document;
+};
+
+const canDeleteDocument = ({ document, employee }) => {
+  if (employee.hierarchyLevel === "SUPER_ADMIN") {
+    return true;
+  }
+
+  // FRS mandatory deletion policy:
+  // creator/owner can delete Draft documents.
+  if (
+    document.status === "DRAFT" &&
+    document.owner.toString() === employee._id.toString()
+  ) {
+    return true;
+  }
+
+  // Under review, approved, published, active and archived documents
+  // are protected from normal creator deletion.
+  return false;
+};
+
+const deleteDocument = async ({ documentId, userId }) => {
+  const document = await Document.findById(documentId);
+
+  if (!document) {
+    throw getStatusCode(new Error("Document not found"), 404);
+  }
+
+  const { employee } = await getAuthenticatedEmployee(userId);
+
+  if (!canDeleteDocument({ document, employee })) {
+    throw getStatusCode(
+      new Error("You are not authorized to delete this document."),
+      403
+    );
+  }
+
+  await DocumentVersion.deleteMany({ document: document._id });
+  await document.deleteOne();
+
+  return true;
+};
+
 module.exports = {
   createDocument,
-  updateDocument
+  updateDocument,
+  getDocuments,
+  getDocumentById,
+  getDocumentVersions,
+  updateDocumentStatus,
+  archiveDocument,
+  restoreDocument,
+  deleteDocument,
 };

@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed:super-admin": "node src/scripts/seedSuperAdmin.js"
+    "seed:super-admin": "node src/scripts/seedSuperAdmin.js",
+    "reset:permissions": "node src/scripts/permission.reset.js",
+    "seed:permissions": "node src/scripts/permission.seed.js",
+    "seed:role-permissions": "node src/scripts/rolePermission.seed.js",
+    "seed:acl": "node src/scripts/acl.seed.js"
   },
   "author": "",
   "license": "ISC",
