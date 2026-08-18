@@ -19,7 +19,7 @@ const submitDocument = async ({ documentId, user }) => {
   }
 
   // 2. Find Document
-  const document = await Document.findById(documentId);
+const document = await Document.findById(documentId);
 
   if (!document) {
     const error = new Error("Document not found.");
@@ -32,7 +32,7 @@ const submitDocument = async ({ documentId, user }) => {
   // 3. Find logged-in Employee
   const employee = await Employee.findById({ _id: user.employeeId });
 
-  console.log("Emp:", employee)
+  // console.log("Emp:", employee)
 
   if (!employee) {
     const error = new Error("Active employee not found.");

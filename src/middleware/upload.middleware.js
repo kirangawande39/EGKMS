@@ -1,13 +1,13 @@
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-
 const cloudinary = require("../config/cloudinary");
 
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "egkms/documents",
-    resource_type: "auto",
+    resource_type: "image",
+    format: "pdf",
   },
 });
 
