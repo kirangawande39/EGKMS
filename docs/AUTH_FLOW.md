@@ -548,17 +548,51 @@ Return Access Token
     "success": true,
     "message": "Login successful.",
     "data": {
-        "accessToken": "JWT_ACCESS_TOKEN",
         "user": {
-            "_id": "USER_OBJECT_ID",
-            "employeeId": "EMPLOYEE_OBJECT_ID",
-            "email": "employee@company.com",
+            "_id": "6a7c81c512244de05fa40053",
+            "employeeId": {
+                "_id": "6a717671cfc15fe117146bce",
+                "employeeId": "EMP-001",
+                "firstName": "Kiran",
+                "lastName": "Gawande",
+                "email": "gawandekiranxxxxx@gmail.com",
+                "hierarchyLevel": "EMPLOYEE",
+                "department": {
+                    "_id": "6a7178421c73966a2997d72b",
+                    "name": "Information Technology",
+                    "head": {
+                        "_id": "6a7ac91e2552d4a821c51095",
+                        "employeeId": "EMP-000",
+                        "firstName": "Bhavesh",
+                        "lastName": "Yadav"
+                    }
+                },
+                "team": {
+                    "_id": "6a79a5240bfaf71ffa3e23d7",
+                    "name": "Frontend Engineering",
+                    "teamLead": {
+                        "_id": "6a757d2f3772ab2f57605070",
+                        "employeeId": "EMP-TL-001",
+                        "firstName": "Amit",
+                        "lastName": "Shinde"
+                    }
+                },
+                "reportingManager": {
+                    "_id": "6a757d2f3772ab2f57605070",
+                    "employeeId": "EMP-TL-001",
+                    "firstName": "Amit",
+                    "lastName": "Shinde"
+                },
+                "status": "ACTIVE"
+            },
+            "email": "gawandekiranxxxxxxgmail.com",
             "accountStatus": "ACTIVE",
             "isEmailVerified": true,
             "failedLoginAttempts": 0,
             "lockUntil": null,
-            "passwordChangedAt": null,
-            "lastLogin": "2026-08-02T18:30:48.779Z"
+            "passwordChangedAt": "2026-08-12T15:01:41.459Z",
+            "lastLogin": "2026-08-18T13:38:21.386Z",
+            "updatedAt": "2026-08-18T13:38:21.399Z"
         }
     }
 }

@@ -1,10 +1,10 @@
-const emailVerificationTemplate = (otp) => {
+const passwordResetTemplate = (otp) => {
   return `
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Email Verification</title>
+<title>Password Reset</title>
 </head>
 
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
@@ -34,11 +34,15 @@ style="background:#1e40af;color:#ffffff;padding:30px;">
 <td style="padding:40px;">
 
 <h2 style="margin-top:0;">
-Hello,
+Reset Your Password
 </h2>
 
 <p style="font-size:16px;color:#555;">
-Use the following One-Time Password (OTP) to verify your email address.
+We received a request to reset your EGKMS account password.
+</p>
+
+<p style="font-size:16px;color:#555;">
+Use the following One-Time Password (OTP) to continue with your password reset.
 </p>
 
 <div
@@ -69,7 +73,7 @@ Please do not share this OTP with anyone.
 </p>
 
 <p style="color:#888;font-size:14px;">
-If you did not request this verification, you can safely ignore this email.
+If you did not request a password reset, you can safely ignore this email.
 </p>
 
 </td>
@@ -101,7 +105,6 @@ This is an automated email. Please do not reply.
 };
 
 
-
 module.exports = {
-  emailVerificationTemplate,
+  passwordResetTemplate,
 };

@@ -96,12 +96,35 @@ const loginSchema = Joi.object({
 
 const refreshTokenSchema = Joi.object({});
 
+// FORGOT PASSWORD
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+
+// VERIFY FORGOT PASSWORD OTP
+const verifyForgotPasswordOTPSchema = Joi.object({
+  email: Joi.string().email().required(),
+  otp: Joi.string().length(6).required(),
+  newPassword: Joi.string().min(8).required(),
+});
+
+
+// CHANGE PASSWORD
+const changePasswordSchema = Joi.object({
+  oldPassword: Joi.string().required(),
+  newPassword: Joi.string().min(8).required(),
+});
 
 
 // EXPORTS
 
 
+
 module.exports = {
+  changePasswordSchema,
+  verifyForgotPasswordOTPSchema,
+  forgotPasswordSchema,
   sendEmailOTPSchema,
   verifyEmailOTPSchema,
   registerSchema,

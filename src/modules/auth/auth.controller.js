@@ -213,10 +213,83 @@ const logout = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};// FORGOT PASSWORD - SEND OTP
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const result = await authService.forgotPassword(email);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
+
+
+// FORGOT PASSWORD - VERIFY OTP + RESET PASSWORD
+
+const verifyForgotPasswordOTP = async (req, res, next) => {
+  try {
+    const {
+      email,
+      otp,
+      newPassword,
+    } = req.body;
+
+    const result =
+      await authService.verifyForgotPasswordOTP(
+        email,
+        otp,
+        newPassword
+      );
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// CHANGE PASSWORD
+
+const changePassword = async (req, res, next) => {
+  try {
+    const {
+      oldPassword,
+      newPassword,
+    } = req.body;
+
+    const result =
+      await authService.changePassword(
+        req.user._id,
+        oldPassword,
+        newPassword
+      );
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 
 // EXPORTS
 module.exports = {
+  changePassword,
+  forgotPassword,
+  verifyForgotPasswordOTP,
   sendEmailOTP,
   verifyEmailOTP,
   register,
