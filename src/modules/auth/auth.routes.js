@@ -54,5 +54,29 @@ router.post(
   authController.logout
 );
 
+// FORGOT PASSWORD - SEND OTP
+router.post(
+  "/forgot-password",
+  validate(authValidator.forgotPasswordSchema),
+  authController.forgotPassword
+);
+
+// FORGOT PASSWORD - VERIFY OTP
+router.post(
+  "/verify-forgot-password-otp",
+  validate(authValidator.verifyForgotPasswordOTPSchema),
+  authController.verifyForgotPasswordOTP
+);
+
+// CHANGE PASSWORD - LOGGED IN USER
+router.post(
+  "/change-password",
+  passport.authenticate("jwt", {
+    session: false,
+  }),
+  validate(authValidator.changePasswordSchema),
+  authController.changePassword
+);
+
 
 module.exports = router;

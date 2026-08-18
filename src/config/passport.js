@@ -35,8 +35,6 @@ passport.use(
 
 
         if (!user) {
-          console.timeEnd("PASSPORT LOGIN TOTAL");
-
           return done(null, false, {
             message: "Invalid email or password.",
           });
@@ -45,8 +43,6 @@ passport.use(
 
         // Check account status
         if (user.accountStatus !== "ACTIVE") {
-          console.timeEnd("PASSPORT LOGIN TOTAL");
-
           return done(null, false, {
             message: "Account is not active.",
           });
@@ -54,9 +50,30 @@ passport.use(
 
 
         // Get linked employee
-        const employee = await Employee.findById(user.employeeId).select(
-          "_id employeeId firstName lastName email hierarchyLevel department team reportingManager status"
-        );
+        const employee = await Employee.findById(user.employeeId)
+          .select(
+            "_id employeeId firstName lastName email hierarchyLevel department team reportingManager status"
+          )
+          .populate({
+            path: "department",
+            select: "name head",
+            populate: {
+              path: "head",
+              select: "firstName lastName employeeId"
+            }
+          })
+          .populate({
+            path: "team",
+            select: "name teamLead",
+            populate: {
+              path: "teamLead",
+              select: "firstName lastName employeeId"
+            }
+          })
+          .populate(
+            "reportingManager",
+            "firstName lastName employeeId"
+          );
 
 
         if (!employee) {
@@ -69,7 +86,6 @@ passport.use(
 
         // Check employee status
         if (employee.status !== "ACTIVE") {
-          console.timeEnd("PASSPORT LOGIN TOTAL");
 
           return done(null, false, {
             message: "Employee account is not active.",
@@ -116,8 +132,6 @@ passport.use(
         // Attach employee information
         user.employeeId = employee;
 
-        // console.log("User:", user)
-
 
         return done(null, user);
 
@@ -131,8 +145,6 @@ passport.use(
 
 
 // JWT STRATEGY
-
-
 const jwtSecret = process.env.JWT_ACCESS_SECRET;
 
 if (!jwtSecret) {
@@ -140,8 +152,6 @@ if (!jwtSecret) {
     "JWT_ACCESS_SECRET is not configured."
   );
 }
-
-
 
 // ACCESS TOKEN COOKIE EXTRACTOR
 
@@ -156,7 +166,6 @@ const cookieExtractor = (req) => {
 
   return null;
 };
-
 
 
 // JWT AUTHENTICATION
@@ -184,15 +193,16 @@ passport.use(
           userId
         );
 
+        if (!user) {
+          return done(null, false);
+        }
+
         if (!user.isEmailVerified) {
           return done(null, false, {
             message: "Please verify your email first.",
           });
         }
 
-        if (!user) {
-          return done(null, false);
-        }
 
         // Account must remain active
         if (user.accountStatus !== "ACTIVE") {
@@ -200,15 +210,35 @@ passport.use(
         }
 
         // Get current employee state
-        const employee = await Employee.findById(
-          user.employeeId
-        ).select(
-          "_id employeeId firstName lastName hierarchyLevel department team status"
-        );
+        const employee = await Employee.findById(user.employeeId)
+          .select(
+            "_id employeeId firstName lastName email hierarchyLevel department team reportingManager status"
+          )
+          .populate({
+            path: "department",
+            select: "name head",
+            populate: {
+              path: "head",
+              select: "firstName lastName employeeId"
+            }
+          })
+          .populate({
+            path: "team",
+            select: "name teamLead",
+            populate: {
+              path: "teamLead",
+              select: "firstName lastName employeeId"
+            }
+          })
+          .populate(
+            "reportingManager",
+            "firstName lastName employeeId"
+          );
 
         if (!employee) {
           return done(null, false);
         }
+
 
         // Employee must remain active
         if (employee.status !== "ACTIVE") {
@@ -216,9 +246,8 @@ passport.use(
         }
 
         // Attach current employee information
-        user._employee = employee;
+        user.employeeId = employee;
 
-        console.log("User:", user)
 
         return done(null, user);
       } catch (error) {
