@@ -45,14 +45,18 @@ const documentVersionSchema = new mongoose.Schema(
       default: null,
     },
 
+
+
     fileUrl: {
       type: String,
       required: [true, "Version file is required"],
+      select: false,
     },
 
     filePublicId: {
       type: String,
       required: [true, "Version file reference is required"],
+      select: false,
     },
 
     fileName: {
