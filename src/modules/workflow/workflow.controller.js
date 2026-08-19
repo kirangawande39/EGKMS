@@ -60,7 +60,7 @@ const reviewWorkflow = async (req, res, next) => {
 
     const workflow = await workflowService.reviewWorkflow({
       workflowId,
-      reviewerId: req.user.employeeId,
+      reviewerId: req.user.employeeId?._id || req.user.employeeId,
       action,
       reviewComment,
     });
