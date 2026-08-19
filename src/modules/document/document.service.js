@@ -219,10 +219,10 @@ const updateDocument = async ({
     );
   }
 
-  if (document.status !== "REVISION") {
+  if (!["DRAFT", "REVISION"].includes(document.status)) {
     throw getStatusCode(
       new Error(
-        "Document can only be modified when it is in REVISION status."
+        "Document can only be modified when it is in DRAFT or REVISION status."
       ),
       400
     );
