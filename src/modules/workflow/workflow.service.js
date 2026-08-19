@@ -32,7 +32,11 @@ const submitDocument = async ({ documentId, user }) => {
   //   console.log("UserId", user)
 
   // 3. Find logged-in Employee
-  const employee = await Employee.findById({ _id: user.employeeId._id });
+  const employee =
+    await Employee.findById(
+      user.employeeId?._id ||
+      user.employeeId
+    );
 
   // console.log("Emp:", employee)
 
@@ -127,6 +131,20 @@ const submitDocument = async ({ documentId, user }) => {
     status: "ACTIVE",
   });
 
+
+  // const reviewerQuery = {
+  //   hierarchyLevel: nextLevel,
+  //   status: "ACTIVE",
+  // };
+
+  // if (nextLevel === "TEAM_LEAD") {
+  //   reviewerQuery.team = employee.team?._id || employee.team;
+  // }
+
+  // const nextReviewer = await Employee.findOne(
+  //   reviewerQuery
+  // );
+
   if (!nextReviewer) {
     const error = new Error(
       `No active ${nextLevel} found for workflow review.`
@@ -184,10 +202,13 @@ const getPendingWorkflows = async ({ userId }) => {
   }
 
   // 2. Find linked active Employee
-  const employee = await Employee.findOne({
-    _id: user.employeeId,
-    status: "ACTIVE",
-  });
+const employeeId =
+  user.employeeId?._id || user.employeeId;
+
+const employee = await Employee.findOne({
+  _id: employeeId,
+  status: "ACTIVE",
+});
 
   if (!employee) {
     const error = new Error("Active employee not found.");
@@ -235,7 +256,11 @@ const getMySubmissions = async (user) => {
   }
 
   // 2. Linked Employee find karo
-  const employee = await Employee.findById(user.employeeId._id).select("_id");
+  const employee =
+    await Employee.findById(
+      user.employeeId?._id ||
+      user.employeeId
+    ).select("_id");
 
   if (!employee) {
     const error = new Error("Employee not found.");

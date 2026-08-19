@@ -282,7 +282,7 @@ const assignReportingManager = async (
 
   const employee =
     await Employee.findById(
-      user.employeeId._id
+      user.employeeId?._id || user.employeeId
     );
 
   if (!employee) {
