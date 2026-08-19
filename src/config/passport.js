@@ -5,8 +5,9 @@ const {
   ExtractJwt,
 } = require("passport-jwt");
 
-const bcrypt = require("bcrypt");
 
+const bcrypt = require("bcrypt");
+const { createAuditLog } = require("../modules/audit/audit.service");
 const User = require("../modules/auth/auth.model");
 const Employee = require("../modules/employee/employee.model");
 

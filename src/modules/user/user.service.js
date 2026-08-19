@@ -5,6 +5,7 @@ const Employee = require("../employee/employee.model");
 
 const ApiError = require("../../utils/ApiError");
 
+const { createAuditLog } = require("../audit/audit.service")
 
 // SAFE USER FIELDS
 
@@ -12,7 +13,6 @@ const safeUserSelect =
   "_id employeeId email accountStatus isEmailVerified failedLoginAttempts lockUntil passwordChangedAt lastLogin createdAt updatedAt";
 
 // GET ALL USERS
-
 
 const getUsers = async () => {
   const users = await User.find()
@@ -28,9 +28,7 @@ const getUsers = async () => {
   return users;
 };
 
-
 // GET USER BY ID
-
 
 const getUserById = async (userId) => {
   const user = await User.findById(userId)
@@ -50,11 +48,12 @@ const getUserById = async (userId) => {
   return user;
 };
 
-
 // UPDATE USER
+
 const updateUser = async (
   userId,
-  updateData
+  updateData,
+  actorId
 ) => {
   const user =
     await User.findById(userId);
@@ -65,6 +64,8 @@ const updateUser = async (
       "User not found."
     );
   }
+
+  const changes = {};
 
   // Email update
   if (updateData.email) {
@@ -88,16 +89,54 @@ const updateUser = async (
       );
     }
 
+    const oldEmail = user.email;
+
     user.email = normalizedEmail;
+
+    if (oldEmail !== normalizedEmail) {
+      changes.email = {
+        from: oldEmail,
+        to: normalizedEmail,
+      };
+    }
   }
 
   // Account status can also be updated
   if (updateData.accountStatus) {
+    const oldStatus =
+      user.accountStatus;
+
     user.accountStatus =
       updateData.accountStatus;
+
+    if (
+      oldStatus !==
+      updateData.accountStatus
+    ) {
+      changes.accountStatus = {
+        from: oldStatus,
+        to: updateData.accountStatus,
+      };
+    }
   }
 
   await user.save();
+
+  // Audit important user changes
+  if (Object.keys(changes).length > 0) {
+    await createAuditLog({
+      module: "USER",
+      action: "USER_CHANGED",
+      actor: actorId,
+      targetId: user._id,
+      targetType: "User",
+      description:
+        "User information was changed.",
+      metadata: {
+        changes,
+      },
+    });
+  }
 
   return User.findById(userId)
     .select(safeUserSelect)
@@ -107,13 +146,12 @@ const updateUser = async (
     );
 };
 
-
 // UPDATE USER ACCOUNT STATUS
-
 
 const updateUserAccountStatus = async (
   userId,
-  accountStatus
+  accountStatus,
+  actorId
 ) => {
   const user =
     await User.findById(userId);
@@ -124,6 +162,9 @@ const updateUserAccountStatus = async (
       "User not found."
     );
   }
+
+  const oldStatus =
+    user.accountStatus;
 
   user.accountStatus =
     accountStatus;
@@ -137,6 +178,23 @@ const updateUserAccountStatus = async (
 
   await user.save();
 
+  if (oldStatus !== accountStatus) {
+    await createAuditLog({
+      module: "USER",
+      action: "USER_CHANGED",
+      actor: actorId,
+      targetId: user._id,
+      targetType: "User",
+      description:
+        "User account status changed.",
+      metadata: {
+        field: "accountStatus",
+        from: oldStatus,
+        to: accountStatus,
+      },
+    });
+  }
+
   return User.findById(userId)
     .select(safeUserSelect)
     .populate(
@@ -145,13 +203,12 @@ const updateUserAccountStatus = async (
     );
 };
 
-
 // RESET PASSWORD
-
 
 const resetPassword = async (
   userId,
-  newPassword
+  newPassword,
+  actorId
 ) => {
   const user =
     await User.findById(userId)
@@ -185,6 +242,19 @@ const resetPassword = async (
 
   await user.save();
 
+  await createAuditLog({
+    module: "USER",
+    action: "USER_CHANGED",
+    actor: actorId,
+    targetId: user._id,
+    targetType: "User",
+    description:
+      "User password was reset.",
+    metadata: {
+      change: "PASSWORD_RESET",
+    },
+  });
+
   return User.findById(userId)
     .select(safeUserSelect)
     .populate(
@@ -193,13 +263,12 @@ const resetPassword = async (
     );
 };
 
-
 // ASSIGN REPORTING MANAGER
-
 
 const assignReportingManager = async (
   userId,
-  reportingManager
+  reportingManager,
+  actorId
 ) => {
   const user =
     await User.findById(userId);
@@ -213,7 +282,7 @@ const assignReportingManager = async (
 
   const employee =
     await Employee.findById(
-      user.employeeId
+      user.employeeId._id
     );
 
   if (!employee) {
@@ -222,6 +291,9 @@ const assignReportingManager = async (
       "Employee linked to user not found."
     );
   }
+
+  const oldReportingManager =
+    employee.reportingManager;
 
   // Null is allowed
   if (
@@ -232,6 +304,22 @@ const assignReportingManager = async (
       null;
 
     await employee.save();
+
+    await createAuditLog({
+      module: "USER",
+      action: "USER_CHANGED",
+      actor: actorId,
+      targetId: user._id,
+      targetType: "User",
+      description:
+        "Reporting manager was removed from user.",
+      metadata: {
+        field: "reportingManager",
+        from:
+          oldReportingManager || null,
+        to: null,
+      },
+    });
 
     return User.findById(userId)
       .select(safeUserSelect)
@@ -269,6 +357,22 @@ const assignReportingManager = async (
 
   await employee.save();
 
+  await createAuditLog({
+    module: "USER",
+    action: "USER_CHANGED",
+    actor: actorId,
+    targetId: user._id,
+    targetType: "User",
+    description:
+      "Reporting manager was changed.",
+    metadata: {
+      field: "reportingManager",
+      from:
+        oldReportingManager || null,
+      to: reportingManager,
+    },
+  });
+
   return User.findById(userId)
     .select(safeUserSelect)
     .populate(
@@ -277,12 +381,11 @@ const assignReportingManager = async (
     );
 };
 
-
 // DELETE USER
 
-
 const deleteUser = async (
-  userId
+  userId,
+  actorId
 ) => {
   const user =
     await User.findById(userId);
@@ -296,15 +399,27 @@ const deleteUser = async (
 
   await user.deleteOne();
 
+  await createAuditLog({
+    module: "USER",
+    action: "USER_CHANGED",
+    actor: actorId,
+    targetId: user._id,
+    targetType: "User",
+    description:
+      "User was removed.",
+    metadata: {
+      change: "USER_DELETED",
+      email: user.email,
+    },
+  });
+
   return {
     message:
       "User removed successfully.",
   };
 };
 
-
 // EXPORTS
-
 
 module.exports = {
   getUsers,

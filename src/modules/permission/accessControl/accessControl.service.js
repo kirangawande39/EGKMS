@@ -54,7 +54,7 @@ const checkAccess = async ({
    * 1. Hierarchy Validation
    */
 
-  const employee = await Employee.findById(user.employeeId).select(
+  const employee = await Employee.findById(user.employeeId?._id).select(
     "_id hierarchyLevel department team"
   );
 

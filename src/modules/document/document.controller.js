@@ -12,7 +12,7 @@ const createDocument = async (req, res, next) => {
       team,
     } = req.body;
 
-    console.log("File:",req.file);
+    // console.log("File:",req.file);
 
     const document = await documentService.createDocument({
       userId: getUserId(req),

@@ -6,7 +6,7 @@ const Department = require("../department/department.model");
 const Team = require("../team/team.model");
 const User = require("../auth/auth.model");
 const DocumentVersion = require("./documentVersion.model");
-
+const { createAuditLog } = require("../audit/audit.service");
 const getStatusCode = (error, fallback = 400) => {
   error.statusCode = error.statusCode || fallback;
   return error;
@@ -147,6 +147,21 @@ const createDocument = async ({
     createdBy: user._id,
   });
 
+  await createAuditLog({
+    module: "DOCUMENT",
+    action: "DOCUMENT_CREATED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: document._id,
+    targetType: "Document",
+    description: "Document created successfully.",
+    metadata: {
+      title: document.title,
+      documentType: document.documentType,
+      version: document.currentVersion,
+    },
+  });
+
   return document;
 };
 
@@ -186,13 +201,13 @@ const updateDocument = async ({
   }
 
   const document = await Document.findById(documentId)
-  .select("+fileUrl +filePublicId");
+    .select("+fileUrl +filePublicId");
 
   if (!document) {
     throw getStatusCode(new Error("Document not found"), 404);
   }
 
-  const { employee } = await getAuthenticatedEmployee(userId);
+  const { employee, user } = await getAuthenticatedEmployee(userId);
 
   if (document.owner.toString() !== employee._id.toString()) {
     throw getStatusCode(
@@ -224,7 +239,7 @@ const updateDocument = async ({
   const currentVersion = document.currentVersion || "v1.0";
   const nextVersion = getNextVersion(currentVersion);
 
-  await DocumentVersion.create({
+  const createdVersion = await DocumentVersion.create({
     document: document._id,
     version: currentVersion,
     title: document.title,
@@ -268,6 +283,39 @@ const updateDocument = async ({
   document.currentVersion = nextVersion;
 
   await document.save();
+
+  await document.save();
+
+  await createAuditLog({
+    module: "DOCUMENT",
+    action: "DOCUMENT_EDITED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: document._id,
+    targetType: "Document",
+    description: "Document edited successfully.",
+    metadata: {
+      previousVersion: currentVersion,
+      newVersion: nextVersion,
+      title: document.title,
+    },
+  });
+
+  await createAuditLog({
+    module: "DOCUMENT",
+    action: "VERSION_CREATED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: document._id,
+    targetType: "Document",
+    description: "New document version created.",
+    metadata: {
+      version: createdVersion.version,
+      nextVersion,
+    },
+  });
+
+  return document;
 
   return document;
 };
@@ -467,7 +515,13 @@ const updateDocumentStatus = async ({
 };
 
 const archiveDocument = async ({ documentId, userId }) => {
-  const document = await getDocumentById({ documentId, userId });
+  const document = await getDocumentById({
+    documentId,
+    userId,
+  });
+
+  const { user } =
+    await getAuthenticatedEmployee(userId);
 
   if (!["PUBLISHED", "ACTIVE", "AMENDMENT"].includes(document.status)) {
     throw getStatusCode(
@@ -480,6 +534,21 @@ const archiveDocument = async ({ documentId, userId }) => {
 
   document.status = "ARCHIVED";
   await document.save();
+
+  await createAuditLog({
+  module: "DOCUMENT",
+  action: "DOCUMENT_ARCHIVED",
+  actor: user._id,
+  actorEmail: user.email,
+  targetId: document._id,
+  targetType: "Document",
+  description: "Document archived successfully.",
+  metadata: {
+    title: document.title,
+    previousStatus: "PUBLISHED",
+    newStatus: "ARCHIVED",
+  },
+});
 
   return document;
 };
@@ -559,7 +628,7 @@ const viewDocument = async ({ documentId, userId }) => {
     throw getStatusCode(new Error("Invalid document ID"), 400);
   }
 
-  const { employee } = await getAuthenticatedEmployee(userId);
+  const { employee, user } = await getAuthenticatedEmployee(userId);
 
   const scope = buildDocumentScope(employee);
 
@@ -591,8 +660,22 @@ const viewDocument = async ({ documentId, userId }) => {
     );
   }
 
-  
+
   const fileBuffer = Buffer.from(await response.arrayBuffer());
+
+  await createAuditLog({
+    module: "DOCUMENT",
+    action: "DOCUMENT_VIEWED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: document._id,
+    targetType: "Document",
+    description: "Document viewed successfully.",
+    metadata: {
+      title: document.title,
+      version: document.currentVersion,
+    },
+  });
 
   return {
     file: fileBuffer,

@@ -69,7 +69,8 @@ const updateACL = async (
   try {
     const acl = await aclService.updateACL(
       req.params.aclId,
-      req.body
+      req.body,
+      req.user._id
     );
 
     return res.status(200).json({
@@ -91,7 +92,8 @@ const updateACLStatus = async (
     const acl =
       await aclService.updateACLStatus(
         req.params.aclId,
-        req.body.status
+        req.body.status,
+        req.user._id
       );
 
     return res.status(200).json({

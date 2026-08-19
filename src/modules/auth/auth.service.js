@@ -4,6 +4,8 @@ const User = require("./auth.model");
 const OTP = require("./otp.model");
 const Employee = require("../employee/employee.model");
 
+const { createAuditLog } = require("../audit/audit.service")
+
 const ApiError = require("../../utils/ApiError");
 const generateOTP = require("../../utils/otp");
 
@@ -100,6 +102,20 @@ const registerUser = async (userData) => {
     isEmailVerified: true,
     accountStatus: "ACTIVE",
   });
+
+  await createAuditLog({
+  module: "USER",
+  action: "USER_CREATED",
+  actor: user._id,
+  targetId: user._id,
+  targetType: "User",
+  description: "User account was created successfully.",
+  metadata: {
+    email: user.email,
+    employeeId: user.employeeId,
+    accountStatus: user.accountStatus,
+  },
+});
 
   // Mark employee as registered
   employee.isRegistered = true;
@@ -208,10 +224,10 @@ const sendEmailOTP = async (email) => {
 const verifyEmailOTP = async (email, otp) => {
   const normalizedEmail = email.toLowerCase().trim();
   const otpRecord = await OTP.findOne({
-  email: normalizedEmail,
-  purpose: "EMAIL_VERIFICATION",
-  verified: false,
-}).select("+otpHash");
+    email: normalizedEmail,
+    purpose: "EMAIL_VERIFICATION",
+    verified: false,
+  }).select("+otpHash");
 
   if (!otpRecord) {
     throw new ApiError(
@@ -600,8 +616,9 @@ const verifyForgotPasswordOTP = async (
   });
 
   return {
-    message:
-      "Password reset successfully.",
+    message: "Password reset successfully.",
+    userId: user._id,
+    email: user.email,
   };
 };
 

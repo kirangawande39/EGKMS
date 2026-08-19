@@ -12,6 +12,8 @@ const accessControlList=require("../modules/permission/acl/acl.routes");
 const documentRoutes = require("../modules/document/document.routes");
 const workflowRoutes = require("../modules/workflow/workflow.routes");
 
+const auditRoutes = require("../modules/audit/audit.routes");
+
 
 router.use("/auth", authRoutes);
 router.use("/employee", employeeRoutes);
@@ -24,6 +26,7 @@ router.use('/role-permission', rolePermissionsRoutes);
 router.use('/acl', accessControlList)
 router.use("/document", documentRoutes);
 router.use("/workflow",workflowRoutes);
+router.use("/audit",auditRoutes);
 
 
 module.exports = router;

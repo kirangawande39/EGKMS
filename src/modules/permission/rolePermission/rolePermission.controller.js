@@ -78,7 +78,8 @@ const updateRolePermission = async (
     const rolePermission =
       await rolePermissionService.updateRolePermission(
         req.params.rolePermissionId,
-        req.body
+        req.body,
+        req.user._id
       );
 
     return res.status(200).json({
@@ -101,7 +102,8 @@ const updateRolePermissionStatus = async (
     const rolePermission =
       await rolePermissionService.updateRolePermissionStatus(
         req.params.rolePermissionId,
-        req.body.status
+        req.body.status,
+        req.user._id
       );
 
     return res.status(200).json({

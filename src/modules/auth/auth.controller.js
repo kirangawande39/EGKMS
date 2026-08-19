@@ -1,5 +1,5 @@
 const authService = require("./auth.service");
-
+const { createAuditLog } = require("../audit/audit.service");
 
 // COOKIE CONFIGURATION
 
@@ -101,9 +101,21 @@ const login = async (req, res, next) => {
         req.user
       );
 
-   
+
+    await createAuditLog({
+      module: "AUTH",
+      action: "LOGIN",
+      actor: req.user._id,
+      actorEmail: req.user.email,
+      targetId: req.user._id,
+      targetType: "User",
+      description: "User logged in successfully.",
+      req,
+    });
+
+
     // STORE ACCESS TOKEN IN HTTPONLY COOKIE
-   
+
 
     res.cookie(
       "accessToken",
@@ -123,11 +135,11 @@ const login = async (req, res, next) => {
       )
     );
 
-   
+
     // RESPONSE
     // Tokens are NOT exposed in JSON.
     // They are stored in HttpOnly cookies.
-  
+
     return res.status(200).json({
       success: true,
       message: "Login successful.",
@@ -153,7 +165,7 @@ const refreshToken = async (req, res, next) => {
       );
 
     // ROTATE ACCESS TOKEN
-   
+
     res.cookie(
       "accessToken",
       result.accessToken,
@@ -162,9 +174,9 @@ const refreshToken = async (req, res, next) => {
       )
     );
 
-   
+
     // ROTATE REFRESH TOKEN
-   
+
 
     res.cookie(
       "refreshToken",
@@ -190,6 +202,17 @@ const logout = async (req, res, next) => {
     await authService.logoutUser(
       req.user._id
     );
+
+    await createAuditLog({
+      module: "AUTH",
+      action: "LOGOUT",
+      actor: req.user._id,
+      actorEmail: req.user.email,
+      targetId: req.user._id,
+      targetType: "User",
+      description: "User logged out successfully.",
+      req,
+    });
 
     // CLEAR ACCESS TOKEN COOKIE
     res.clearCookie(
@@ -247,6 +270,17 @@ const verifyForgotPasswordOTP = async (req, res, next) => {
         otp,
         newPassword
       );
+
+    await createAuditLog({
+      module: "AUTH",
+      action: "PASSWORD_RESET",
+      actor: result.userId,
+      actorEmail: result.email,
+      targetId: result.userId,
+      targetType: "User",
+      description: "User password was reset successfully.",
+      req,
+    });
 
     return res.status(200).json({
       success: true,
