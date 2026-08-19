@@ -19,8 +19,11 @@ const getAuthenticatedEmployee = async (userId) => {
     throw getStatusCode(new Error("User not found"), 404);
   }
 
+  const employeeId =
+    user.employeeId?._id || user.employeeId;
+
   const employee = await Employee.findOne({
-    _id: user.employeeId,
+    _id: employeeId,
     status: "ACTIVE",
   });
 
@@ -284,7 +287,6 @@ const updateDocument = async ({
 
   await document.save();
 
-  await document.save();
 
   await createAuditLog({
     module: "DOCUMENT",
@@ -315,7 +317,6 @@ const updateDocument = async ({
     },
   });
 
-  return document;
 
   return document;
 };
@@ -536,19 +537,19 @@ const archiveDocument = async ({ documentId, userId }) => {
   await document.save();
 
   await createAuditLog({
-  module: "DOCUMENT",
-  action: "DOCUMENT_ARCHIVED",
-  actor: user._id,
-  actorEmail: user.email,
-  targetId: document._id,
-  targetType: "Document",
-  description: "Document archived successfully.",
-  metadata: {
-    title: document.title,
-    previousStatus: "PUBLISHED",
-    newStatus: "ARCHIVED",
-  },
-});
+    module: "DOCUMENT",
+    action: "DOCUMENT_ARCHIVED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: document._id,
+    targetType: "Document",
+    description: "Document archived successfully.",
+    metadata: {
+      title: document.title,
+      previousStatus: "PUBLISHED",
+      newStatus: "ARCHIVED",
+    },
+  });
 
   return document;
 };
