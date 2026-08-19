@@ -21,7 +21,9 @@ const authorize = (...allowedLevels) => {
 
     // Employee information is attached by Passport
     // in auth.middleware.js
-    const employee = req.employee;
+    const employee = req.user?.employeeId;
+
+    // console.log("Employee:",req.user.employeeId)
 
     if (!employee) {
       return res.status(403).json({

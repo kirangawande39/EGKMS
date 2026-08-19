@@ -132,7 +132,9 @@ passport.use(
         // Attach employee information
         user.employeeId = employee;
 
-
+        console.log("User during Login:",user)
+        
+        
         return done(null, user);
 
       } catch (error) {
@@ -193,6 +195,8 @@ passport.use(
           userId
         );
 
+        // console.log("User:",user)
+
         if (!user) {
           return done(null, false);
         }
@@ -238,8 +242,8 @@ passport.use(
         if (!employee) {
           return done(null, false);
         }
-
-
+        
+        
         // Employee must remain active
         if (employee.status !== "ACTIVE") {
           return done(null, false);
@@ -248,6 +252,7 @@ passport.use(
         // Attach current employee information
         user.employeeId = employee;
 
+        // console.log("User during Auth:",user)
 
         return done(null, user);
       } catch (error) {
