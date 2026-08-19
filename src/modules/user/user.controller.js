@@ -69,7 +69,8 @@ const updateUser = async (
     const user =
       await userService.updateUser(
         userId,
-        req.body
+        req.body,
+        req.user._id
       );
 
     return res.status(200).json({
@@ -103,7 +104,8 @@ const updateUserAccountStatus =
       const user =
         await userService.updateUserAccountStatus(
           userId,
-          accountStatus
+          accountStatus,
+          req.user._id
         );
 
       return res.status(200).json({
@@ -136,7 +138,8 @@ const resetPassword = async (
     const user =
       await userService.resetPassword(
         userId,
-        newPassword
+        newPassword,
+        req.user._id
       );
 
     return res.status(200).json({
@@ -171,7 +174,8 @@ const assignReportingManager =
       const user =
         await userService.assignReportingManager(
           userId,
-          reportingManager
+          reportingManager,
+          req.user._id
         );
 
       return res.status(200).json({
@@ -200,7 +204,8 @@ const deleteUser = async (
 
     const result =
       await userService.deleteUser(
-        userId
+        userId,
+        req.user._id
       );
 
     return res.status(200).json({

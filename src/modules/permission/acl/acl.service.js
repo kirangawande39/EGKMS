@@ -5,6 +5,7 @@ const Permission = require("../permission/permission.model");
 const Department = require("../../department/department.model");
 const Team = require("../../team/team.model");
 const Employee = require("../../employee/employee.model");
+const { createAuditLog } = require("../../audit/audit.service");
 
 const validateReferences = async (data) => {
   const permission = await Permission.findById(
@@ -52,7 +53,7 @@ const validateReferences = async (data) => {
       data.department &&
       team.department &&
       team.department.toString() !==
-        data.department.toString()
+      data.department.toString()
     ) {
       const error = new Error(
         "Team does not belong to the selected department."
@@ -79,7 +80,7 @@ const validateReferences = async (data) => {
       data.department &&
       employee.department &&
       employee.department.toString() !==
-        data.department.toString()
+      data.department.toString()
     ) {
       const error = new Error(
         "Employee does not belong to the selected department."
@@ -92,7 +93,7 @@ const validateReferences = async (data) => {
       data.team &&
       employee.team &&
       employee.team.toString() !==
-        data.team.toString()
+      data.team.toString()
     ) {
       const error = new Error(
         "Employee does not belong to the selected team."
@@ -131,6 +132,24 @@ const createACL = async (data, userId) => {
     effect: data.effect,
     status: data.status || "ACTIVE",
     createdBy: userId,
+  });
+
+  await createAuditLog({
+    module: "PERMISSION",
+    action: "ACL_CHANGED",
+    actor: userId,
+    targetId: acl._id,
+    targetType: "ACL",
+    description: "ACL rule created successfully.",
+    metadata: {
+      hierarchyLevel: acl.hierarchyLevel,
+      permission: acl.permission,
+      department: acl.department,
+      team: acl.team,
+      employee: acl.employee,
+      effect: acl.effect,
+      status: acl.status,
+    },
   });
 
   return ACL.findById(acl._id)
@@ -256,7 +275,7 @@ const getACLById = async (aclId) => {
   return acl;
 };
 
-const updateACL = async (aclId, data) => {
+const updateACL = async (aclId, data, userId) => {
   if (!mongoose.Types.ObjectId.isValid(aclId)) {
     const error = new Error(
       "Invalid ACL ID."
@@ -336,12 +355,31 @@ const updateACL = async (aclId, data) => {
 
   await acl.save();
 
+  await createAuditLog({
+    module: "PERMISSION",
+    action: "ACL_CHANGED",
+    actor: userId,
+    targetId: acl._id,
+    targetType: "ACL",
+    description: "ACL rule updated successfully.",
+    metadata: {
+      hierarchyLevel: acl.hierarchyLevel,
+      permission: acl.permission,
+      department: acl.department,
+      team: acl.team,
+      employee: acl.employee,
+      effect: acl.effect,
+      status: acl.status,
+    },
+  });
+
   return getACLById(acl._id);
 };
 
 const updateACLStatus = async (
   aclId,
-  status
+  status,
+  userId
 ) => {
   if (!mongoose.Types.ObjectId.isValid(aclId)) {
     const error = new Error(
@@ -364,6 +402,23 @@ const updateACLStatus = async (
   acl.status = status;
 
   await acl.save();
+  await createAuditLog({
+    module: "PERMISSION",
+    action: "ACL_CHANGED",
+    actor: userId,
+    targetId: acl._id,
+    targetType: "ACL",
+    description: "ACL status changed.",
+    metadata: {
+      hierarchyLevel: acl.hierarchyLevel,
+      permission: acl.permission,
+      department: acl.department,
+      team: acl.team,
+      employee: acl.employee,
+      effect: acl.effect,
+      status: acl.status,
+    },
+  });
 
   return getACLById(acl._id);
 };

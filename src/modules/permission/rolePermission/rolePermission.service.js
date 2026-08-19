@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const RolePermission = require("./rolePermission.model");
 const Permission = require("../permission/permission.model");
 
+const { createAuditLog } = require("../../audit/audit.service");
+
 const createRolePermission = async (data, userId) => {
   const permission = await Permission.findById(data.permission);
 
@@ -39,6 +41,21 @@ const createRolePermission = async (data, userId) => {
     assignedBy: userId,
     status: data.status || "ACTIVE",
   });
+
+  await createAuditLog({
+    module: "PERMISSION",
+    action: "ROLE_PERMISSION_CHANGED",
+    actor: userId,
+    targetId: rolePermission._id,
+    targetType: "RolePermission",
+    description: "Role permission created successfully.",
+    metadata: {
+      hierarchyLevel: rolePermission.hierarchyLevel,
+      permission: rolePermission.permission,
+      status: rolePermission.status,
+    },
+  });
+
 
   return RolePermission.findById(rolePermission._id)
     .populate(
@@ -111,7 +128,8 @@ const getRolePermissionById = async (rolePermissionId) => {
 
 const updateRolePermission = async (
   rolePermissionId,
-  data
+  data,
+  userId
 ) => {
   if (!mongoose.Types.ObjectId.isValid(rolePermissionId)) {
     const error = new Error(
@@ -186,6 +204,23 @@ const updateRolePermission = async (
 
   await rolePermission.save();
 
+  await rolePermission.save();
+
+  await createAuditLog({
+    module: "PERMISSION",
+    action: "ROLE_PERMISSION_CHANGED",
+    actor: userId,
+    targetId: rolePermission._id,
+    targetType: "RolePermission",
+    description: "Role permission updated successfully.",
+    metadata: {
+      hierarchyLevel: rolePermission.hierarchyLevel,
+      permission: rolePermission.permission,
+      status: rolePermission.status,
+    },
+  });
+
+
   return RolePermission.findById(rolePermission._id)
     .populate(
       "permission",
@@ -199,7 +234,8 @@ const updateRolePermission = async (
 
 const updateRolePermissionStatus = async (
   rolePermissionId,
-  status
+  status,
+  userId
 ) => {
   if (!mongoose.Types.ObjectId.isValid(rolePermissionId)) {
     const error = new Error(
@@ -221,9 +257,23 @@ const updateRolePermissionStatus = async (
     throw error;
   }
 
-  rolePermission.status = status;
+rolePermission.status = status;
 
-  await rolePermission.save();
+await rolePermission.save();
+
+await createAuditLog({
+  module: "PERMISSION",
+  action: "ROLE_PERMISSION_CHANGED",
+  actor: userId,
+  targetId: rolePermission._id,
+  targetType: "RolePermission",
+  description: "Role permission status changed.",
+  metadata: {
+    hierarchyLevel: rolePermission.hierarchyLevel,
+    permission: rolePermission.permission,
+    status: rolePermission.status,
+  },
+});
 
   return RolePermission.findById(rolePermission._id)
     .populate(

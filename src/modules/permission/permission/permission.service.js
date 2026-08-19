@@ -5,6 +5,8 @@ const {
   PERMISSION_ACTIONS,
 } = require("../permission.constants");
 
+const { createAuditLog } = require("../../audit/audit.service");
+
 const createPermission = async (data, userId) => {
   const resource = data.resource.trim().toUpperCase();
 
@@ -28,6 +30,20 @@ const createPermission = async (data, userId) => {
     status: data.status || "ACTIVE",
     createdBy: userId || null,
   });
+
+  await createAuditLog({
+  module: "PERMISSION",
+  action: "PERMISSION_CREATED",
+  actor: userId,
+  targetId: permission._id,
+  targetType: "Permission",
+  description: "Permission created successfully.",
+  metadata: {
+    resource: permission.resource,
+    permissionAction: permission.action,
+    status: permission.status,
+  },
+});
 
   return permission;
 };
@@ -71,7 +87,7 @@ const getPermissionById = async (permissionId) => {
   return permission;
 };
 
-const updatePermission = async (permissionId, data) => {
+const updatePermission = async (permissionId, data,userId) => {
   if (!mongoose.Types.ObjectId.isValid(permissionId)) {
     const error = new Error("Invalid permission ID.");
     error.statusCode = 400;
@@ -124,11 +140,25 @@ const updatePermission = async (permissionId, data) => {
 
   await permission.save();
 
+  await createAuditLog({
+  module: "PERMISSION",
+  action: "PERMISSION_CHANGED",
+  actor: userId,
+  targetId: permission._id,
+  targetType: "Permission",
+  description: "Permission changed successfully.",
+  metadata: {
+    resource: permission.resource,
+    permissionAction: permission.action,
+    status: permission.status,
+  },
+});
+
   return Permission.findById(permission._id)
     .populate("createdBy", "_id email");
 };
 
-const updatePermissionStatus = async (permissionId, status) => {
+const updatePermissionStatus = async (permissionId, status,userId) => {
   if (!mongoose.Types.ObjectId.isValid(permissionId)) {
     const error = new Error("Invalid permission ID.");
     error.statusCode = 400;
@@ -146,6 +176,20 @@ const updatePermissionStatus = async (permissionId, status) => {
   permission.status = status;
 
   await permission.save();
+
+  await createAuditLog({
+  module: "PERMISSION",
+  action: "PERMISSION_CHANGED",
+  actor: userId,
+  targetId: permission._id,
+  targetType: "Permission",
+  description: "Permission status changed.",
+  metadata: {
+    resource: permission.resource,
+    permissionAction: permission.action,
+    status: permission.status,
+  },
+});
 
   return permission;
 };

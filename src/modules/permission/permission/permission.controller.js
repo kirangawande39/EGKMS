@@ -51,7 +51,8 @@ const updatePermission = async (req, res, next) => {
   try {
     const permission = await permissionService.updatePermission(
       req.params.permissionId,
-      req.body
+      req.body,
+      req.user._id
     );
 
     return res.status(200).json({
@@ -68,7 +69,8 @@ const updatePermissionStatus = async (req, res, next) => {
   try {
     const permission = await permissionService.updatePermissionStatus(
       req.params.permissionId,
-      req.body.status
+      req.body.status,
+      req.user._id
     );
 
     return res.status(200).json({

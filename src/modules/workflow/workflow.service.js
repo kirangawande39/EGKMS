@@ -7,6 +7,8 @@ const User = require("../auth/auth.model");
 const Department = require("../department/department.model")
 const Team = require("../team/team.model");
 
+const { createAuditLog } = require("../audit/audit.service");
+
 /**
  * Submit a document for workflow review.
  */
@@ -19,7 +21,7 @@ const submitDocument = async ({ documentId, user }) => {
   }
 
   // 2. Find Document
-const document = await Document.findById(documentId);
+  const document = await Document.findById(documentId);
 
   if (!document) {
     const error = new Error("Document not found.");
@@ -30,7 +32,7 @@ const document = await Document.findById(documentId);
   //   console.log("UserId", user)
 
   // 3. Find logged-in Employee
-  const employee = await Employee.findById({ _id: user.employeeId });
+  const employee = await Employee.findById({ _id: user.employeeId._id });
 
   // console.log("Emp:", employee)
 
@@ -153,6 +155,21 @@ const document = await Document.findById(documentId);
   document.status = "SUBMITTED";
   await document.save();
 
+  await createAuditLog({
+    module: "WORKFLOW",
+    action: "WORKFLOW_SUBMITTED",
+    actor: user._id,
+    actorEmail: user.email,
+    targetId: workflow._id,
+    targetType: "Workflow",
+    description: "Document submitted for workflow review.",
+    metadata: {
+      documentId: document._id,
+      currentLevel: workflow.currentLevel,
+      currentReviewer: workflow.currentReviewer,
+    },
+  });
+
   return workflow;
 };
 
@@ -218,7 +235,7 @@ const getMySubmissions = async (user) => {
   }
 
   // 2. Linked Employee find karo
-  const employee = await Employee.findById(user.employeeId).select("_id");
+  const employee = await Employee.findById(user.employeeId._id).select("_id");
 
   if (!employee) {
     const error = new Error("Employee not found.");
@@ -371,6 +388,25 @@ const reviewWorkflow = async ({
       reviewComment: reviewComment.trim(),
     });
 
+    const reviewerUser = await User.findOne({
+      employeeId: reviewer._id,
+    });
+
+    await createAuditLog({
+      module: "WORKFLOW",
+      action: "WORKFLOW_RETURNED",
+      actor: reviewerUser?._id || null,
+      actorEmail: reviewerUser?.email || null,
+      targetId: workflow._id,
+      targetType: "Workflow",
+      description: "Document returned for revision.",
+      metadata: {
+        documentId: workflow.document,
+        reviewComment: reviewComment.trim(),
+        currentLevel: workflow.currentLevel,
+      },
+    });
+
     return workflow;
   }
 
@@ -392,6 +428,25 @@ const reviewWorkflow = async ({
       reviewComment: reviewComment.trim(),
     });
 
+    const reviewerUser = await User.findOne({
+      employeeId: reviewer._id,
+    });
+
+    await createAuditLog({
+      module: "WORKFLOW",
+      action: "WORKFLOW_REJECTED",
+      actor: reviewerUser?._id || null,
+      actorEmail: reviewerUser?.email || null,
+      targetId: workflow._id,
+      targetType: "Workflow",
+      description: "Document rejected during workflow review.",
+      metadata: {
+        documentId: workflow.document,
+        reviewComment: reviewComment.trim(),
+        currentLevel: workflow.currentLevel,
+      },
+    });
+
     return workflow;
   }
 
@@ -404,6 +459,10 @@ const reviewWorkflow = async ({
     // ---------------------------------------------------
     // TEAM LEAD → MANAGER
     // ---------------------------------------------------
+
+    const reviewerUser = await User.findOne({
+      employeeId: reviewer._id,
+    });
 
     if (workflow.currentLevel === "TEAM_LEAD") {
       const manager = await Employee.findOne({
@@ -436,6 +495,22 @@ const reviewWorkflow = async ({
       // Clear previous revision/rejection comment
       await Document.findByIdAndUpdate(workflow.document, {
         reviewComment: null,
+      });
+
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_APPROVED",
+        actor: reviewerUser?._id || null,
+        actorEmail: reviewerUser?.email || null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Document approved and forwarded to the next workflow level.",
+        metadata: {
+          documentId: workflow.document,
+          approvedLevel: "TEAM_LEAD",
+          nextLevel: workflow.currentLevel,
+          nextReviewer: workflow.currentReviewer,
+        },
       });
 
       return workflow;
@@ -496,7 +571,24 @@ const reviewWorkflow = async ({
         reviewComment: null,
       });
 
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_APPROVED",
+        actor: reviewerUser?._id || null,
+        actorEmail: reviewerUser?.email || null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Document approved and forwarded to the next workflow level.",
+        metadata: {
+          documentId: workflow.document,
+          approvedLevel: "MANAGER",
+          nextLevel: workflow.currentLevel,
+          nextReviewer: workflow.currentReviewer,
+        },
+      });
+
       return workflow;
+
     }
 
     // ---------------------------------------------------
@@ -535,6 +627,23 @@ const reviewWorkflow = async ({
       await Document.findByIdAndUpdate(workflow.document, {
         reviewComment: null,
       });
+
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_APPROVED",
+        actor: reviewerUser?._id || null,
+        actorEmail: reviewerUser?.email || null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Document approved and forwarded to the next workflow level.",
+        metadata: {
+          documentId: workflow.document,
+          approvedLevel: "DEPARTMENT_HEAD",
+          nextLevel: workflow.currentLevel,
+          nextReviewer: workflow.currentReviewer,
+        },
+      });
+
 
       return workflow;
     }
@@ -575,6 +684,22 @@ const reviewWorkflow = async ({
         reviewComment: null,
       });
 
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_APPROVED",
+        actor: reviewerUser?._id || null,
+        actorEmail: reviewerUser?.email || null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Document approved and forwarded to the next workflow level.",
+        metadata: {
+          documentId: workflow.document,
+          approvedLevel: "EXECUTIVE",
+          nextLevel: workflow.currentLevel,
+          nextReviewer: workflow.currentReviewer,
+        },
+      });
+
       return workflow;
     }
 
@@ -598,6 +723,22 @@ const reviewWorkflow = async ({
       await Document.findByIdAndUpdate(workflow.document, {
         status: "PUBLISHED",
         reviewComment: null,
+      });
+
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_APPROVED",
+        actor: reviewerUser?._id || null,
+        actorEmail: reviewerUser?.email || null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Document approved and published successfully.",
+        metadata: {
+          documentId: workflow.document,
+          approvedLevel: "GOVERNANCE",
+          finalApproval: true,
+          status: "PUBLISHED",
+        },
       });
 
       return workflow;
@@ -631,6 +772,9 @@ const reviewWorkflow = async ({
     throw error;
   }
 };
+
+
+
 
 const resubmitDocument = async ({
   documentId,
@@ -762,6 +906,25 @@ const resubmitDocument = async ({
   workflow.escalatedAt = null;
 
   await workflow.save();
+
+  const user = await User.findOne({
+    employeeId,
+  });
+
+  await createAuditLog({
+    module: "WORKFLOW",
+    action: "WORKFLOW_RESUBMITTED",
+    actor: user?._id || null,
+    actorEmail: user?.email || null,
+    targetId: workflow._id,
+    targetType: "Workflow",
+    description: "Document resubmitted for workflow review.",
+    metadata: {
+      documentId: document._id,
+      currentLevel: workflow.currentLevel,
+      currentReviewer: workflow.currentReviewer,
+    },
+  });
 
   return workflow;
 };
@@ -912,6 +1075,7 @@ const processWorkflowEscalations = async () => {
         continue;
       }
 
+      const previousLevel = workflow.currentLevel;
       workflow.currentReviewer = nextReviewer._id;
       workflow.currentLevel =
         nextReviewer.hierarchyLevel;
@@ -924,7 +1088,26 @@ const processWorkflowEscalations = async () => {
       workflow.escalationCount += 1;
       workflow.reminderCount = 0;
 
+
+
       await workflow.save();
+
+      await createAuditLog({
+        module: "WORKFLOW",
+        action: "WORKFLOW_ESCALATED",
+        actor: null,
+        actorEmail: null,
+        targetId: workflow._id,
+        targetType: "Workflow",
+        description: "Workflow automatically escalated to the next authority.",
+        metadata: {
+          documentId: workflow.document,
+          previousLevel,
+          newLevel: workflow.currentLevel,
+          newReviewer: workflow.currentReviewer,
+          escalationCount: workflow.escalationCount,
+        },
+      });
     }
   }
 };
