@@ -16,6 +16,13 @@ const {
 
 const teamController = require("./team.controller");
 
+const {
+  teamCreateLimiter,
+  teamReadLimiter,
+  teamUpdateLimiter,
+  teamStatusLimiter,
+  teamDeleteLimiter,
+} = require("./team.rateLimiter");
 
 // CREATE TEAM
 // FRS: Team creation responsibility.
@@ -25,6 +32,7 @@ const teamController = require("./team.controller");
 router.post(
   "/",
   authenticate,
+  teamCreateLimiter,
   accessControl("TEAM", "CREATE"),
   validate(createTeamValidator),
   teamController.createTeam
@@ -38,6 +46,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+  teamReadLimiter,
   accessControl("TEAM", "VIEW"),
   teamController.getTeams
 );
@@ -50,6 +59,7 @@ router.get(
 router.get(
   "/:teamId",
   authenticate,
+  teamReadLimiter,
   accessControl("TEAM", "VIEW"),
   teamController.getTeamById
 );
@@ -62,6 +72,7 @@ router.get(
 router.patch(
   "/:teamId",
   authenticate,
+  teamUpdateLimiter,
   accessControl("TEAM", "EDIT"),
   validate(updateTeamValidator),
   teamController.updateTeam
@@ -75,6 +86,7 @@ router.patch(
 router.patch(
   "/:teamId/status",
   authenticate,
+  teamStatusLimiter,
   accessControl("TEAM", "EDIT"),
   validate(updateTeamStatusValidator),
   teamController.updateTeamStatus
@@ -87,6 +99,7 @@ router.patch(
 router.delete(
   "/:teamId",
   authenticate,
+  teamDeleteLimiter,
   accessControl("TEAM", "DELETE"),
   teamController.deleteTeam
 );

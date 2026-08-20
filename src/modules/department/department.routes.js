@@ -19,11 +19,20 @@ const departmentController = require("./department.controller");
 
 const accessControl = require("../permission/accessControl/accessControl.middleware")
 
+const {
+  departmentCreateLimiter,
+  departmentReadLimiter,
+  departmentUpdateLimiter,
+  departmentStatusLimiter,
+  departmentDeleteLimiter,
+} = require("./department.rateLimiter");
+
 
 // CREATE DEPARTMENT
 router.post(
   "/",
   authenticate,
+  departmentCreateLimiter,
   accessControl("DEPARTMENT", "CREATE"),
   validate(createDepartmentValidator),
   departmentController.createDepartment
@@ -34,6 +43,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+    departmentReadLimiter,
   accessControl("DEPARTMENT", "VIEW"),
   departmentController.getDepartments
 );
@@ -42,6 +52,7 @@ router.get(
 router.get(
   "/:departmentId",
   authenticate,
+    departmentReadLimiter,
   accessControl("DEPARTMENT", "VIEW"),
   departmentController.getDepartmentById
 );
@@ -50,6 +61,7 @@ router.get(
 router.patch(
   "/:departmentId",
   authenticate,
+  departmentUpdateLimiter,
   accessControl("DEPARTMENT", "EDIT"),
   validate(updateDepartmentValidator),
   departmentController.updateDepartment
@@ -59,6 +71,7 @@ router.patch(
 router.patch(
   "/:departmentId/status",
   authenticate,
+  departmentStatusLimiter,
   accessControl("DEPARTMENT", "DELETE"),
   validate(
     require("joi").object({
@@ -76,6 +89,7 @@ router.patch(
 router.delete(
   "/:departmentId",
   authenticate,
+  departmentDeleteLimiter,
   accessControl("DEPARTMENT", "DELETE"),
   departmentController.deleteDepartment
 );

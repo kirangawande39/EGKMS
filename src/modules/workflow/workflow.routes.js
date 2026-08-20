@@ -11,6 +11,12 @@ const {
   startWorkflowEscalationScheduler,
 } = require("./workflow.scheduler");
 const accessControl = require("../permission/accessControl/accessControl.middleware");
+const {
+  workflowReadLimiter,
+  workflowSubmitLimiter,
+  workflowReviewLimiter,
+  workflowResubmitLimiter,
+} = require("./workflow.rateLimiter");
 
 // Starts the FRS reminder/escalation monitor once when this router is loaded.
 startWorkflowEscalationScheduler();
@@ -18,6 +24,7 @@ startWorkflowEscalationScheduler();
 router.get(
   "/my-submissions",
   authenticate,
+  workflowReadLimiter,
   accessControl("DOCUMENT", "VIEW"),
   workflowController.getMySubmissions
 );
@@ -25,6 +32,7 @@ router.get(
 router.get(
   "/pending",
   authenticate,
+  workflowReadLimiter,
    accessControl("DOCUMENT", "REVIEW"),
   workflowController.getPendingWorkflows
 );
@@ -33,13 +41,15 @@ router.get(
 router.post(
   "/:documentId/submit",
   authenticate,
-  // accessControl("DOCUMENT", "CREATE"),
+  workflowSubmitLimiter,
+  accessControl("DOCUMENT", "CREATE"),
   workflowController.submitDocument
 );
 
 router.post(
   "/:workflowId/review",
   authenticate,
+  workflowReviewLimiter,
   reviewWorkflowValidator,
   workflowController.reviewWorkflow
 );
@@ -47,6 +57,7 @@ router.post(
 router.post(
   "/:documentId/resubmit",
   authenticate,
+  workflowResubmitLimiter,
   workflowController.resubmitDocument
 );
 

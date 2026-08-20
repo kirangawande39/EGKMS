@@ -11,6 +11,13 @@ const {
 const { authenticate } = require("../../../middleware/auth.middleware");
 const authorize = require("../../../middleware/role.middleware");
 const validate = require("../../../middleware/validate.middleware");
+const {
+  permissionCreateLimiter,
+  permissionReadLimiter,
+  permissionUpdateLimiter,
+  permissionStatusLimiter,
+  permissionDeleteLimiter,
+} = require("./permission.rateLimiter");
 
 const router = express.Router();
 
@@ -20,26 +27,29 @@ const router = express.Router();
 */
 
 router.post(
-    "/",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    validate(createPermissionSchema),
-    permissionController.createPermission
+  "/",
+  authenticate,
+  permissionCreateLimiter,
+  authorize("SUPER_ADMIN"),
+  validate(createPermissionSchema),
+  permissionController.createPermission
 );
 
 /*
  * Get All Permissions
  */
 router.get(
-    "/",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    permissionController.getPermissions
+  "/",
+  authenticate,
+  permissionReadLimiter,
+  authorize("SUPER_ADMIN"),
+  permissionController.getPermissions
 );
 
 router.get(
   "/options",
   authenticate,
+  permissionReadLimiter,
   authorize("SUPER_ADMIN"),
   permissionController.getPermissionOptions
 );
@@ -47,42 +57,46 @@ router.get(
  * Get Permission By ID
  */
 router.get(
-    "/:permissionId",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    permissionController.getPermissionById
+  "/:permissionId",
+  authenticate,
+  permissionReadLimiter,
+  authorize("SUPER_ADMIN"),
+  permissionController.getPermissionById
 );
 
 /*
  * Update Permission
  */
 router.patch(
-    "/:permissionId",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    validate(updatePermissionSchema),
-    permissionController.updatePermission
+  "/:permissionId",
+  authenticate,
+  permissionUpdateLimiter,
+  authorize("SUPER_ADMIN"),
+  validate(updatePermissionSchema),
+  permissionController.updatePermission
 );
 
 /*
  * Update Permission Status
  */
 router.patch(
-    "/:permissionId/status",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    validate(updatePermissionStatusSchema),
-    permissionController.updatePermissionStatus
+  "/:permissionId/status",
+  authenticate,
+  permissionStatusLimiter,
+  authorize("SUPER_ADMIN"),
+  validate(updatePermissionStatusSchema),
+  permissionController.updatePermissionStatus
 );
 
 /*
  * Delete Permission
  */
 router.delete(
-    "/:permissionId",
-    authenticate,
-    authorize("SUPER_ADMIN"),
-    permissionController.deletePermission
+  "/:permissionId",
+  authenticate,
+  permissionDeleteLimiter,
+  authorize("SUPER_ADMIN"),
+  permissionController.deletePermission
 );
 
 module.exports = router;

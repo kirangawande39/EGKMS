@@ -4,7 +4,6 @@ const {
   getAuditLogsController,
 } = require("./audit.controller");
 
-const passport = require("../../config/passport");
 
 const {
   authenticate,
@@ -12,12 +11,17 @@ const {
 
 const authorize = require("../../middleware/role.middleware");
 
+const {
+  auditReadLimiter,
+} = require("./audit.rateLimiter");
+
 const router = express.Router();
 
 // GET AUDIT LOGS
 router.get(
   "/",
   authenticate,
+  auditReadLimiter,
   authorize("SUPER_ADMIN"),
   getAuditLogsController
 );

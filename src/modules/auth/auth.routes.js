@@ -4,6 +4,7 @@ const authController = require("./auth.controller");
 const authValidator = require("./auth.validator");
 const validate = require("../../middleware/validate.middleware");
 const passport = require("passport");
+const { loginLimiter , sendEmailOTPLimiter , verifyEmailOTPLimiter,registerLimiter } = require("./auth.rateLimiter")
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 // SEND EMAIL OTP
 router.post(
   "/send-email-otp",
+  sendEmailOTPLimiter,
   validate(authValidator.sendEmailOTPSchema),
   authController.sendEmailOTP
 );
@@ -18,6 +20,7 @@ router.post(
 // VERIFY EMAIL OTP
 router.post(
   "/verify-email-otp",
+  verifyEmailOTPLimiter,
   validate(authValidator.verifyEmailOTPSchema),
   authController.verifyEmailOTP
 );
@@ -25,6 +28,7 @@ router.post(
 // REGISTER
 router.post(
   "/register",
+  registerLimiter,
   validate(authValidator.registerSchema),
   authController.register
 );
@@ -32,6 +36,7 @@ router.post(
 // LOGIN
 router.post(
   "/login",
+  loginLimiter,
   validate(authValidator.loginSchema),
   passport.authenticate("local", {
     session: false,

@@ -10,6 +10,14 @@ const {
   updateAclStatusSchema,
 } = require("./acl.validator");
 
+const {
+  aclCreateLimiter,
+  aclReadLimiter,
+  aclUpdateLimiter,
+  aclStatusLimiter,
+  aclDeleteLimiter,
+} = require("./acl.rateLimiter");
+
 const {authenticate} = require(
   "../../../middleware/auth.middleware"
 );
@@ -30,6 +38,7 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
+  aclCreateLimiter,
   authorize("SUPER_ADMIN"),
   validate(createAclSchema),
   aclController.createACL
@@ -41,6 +50,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+  aclReadLimiter,
   authorize("SUPER_ADMIN"),
   aclController.getACLs
 );
@@ -51,6 +61,7 @@ router.get(
 router.get(
   "/:aclId",
   authenticate,
+  aclReadLimiter,
   authorize("SUPER_ADMIN"),
   aclController.getACLById
 );
@@ -61,6 +72,7 @@ router.get(
 router.patch(
   "/:aclId",
   authenticate,
+  aclUpdateLimiter,
   authorize("SUPER_ADMIN"),
   validate(updateAclSchema),
   aclController.updateACL
@@ -72,6 +84,7 @@ router.patch(
 router.patch(
   "/:aclId/status",
   authenticate,
+  aclStatusLimiter,
   authorize("SUPER_ADMIN"),
   validate(updateAclStatusSchema),
   aclController.updateACLStatus
@@ -83,6 +96,7 @@ router.patch(
 router.delete(
   "/:aclId",
   authenticate,
+  aclDeleteLimiter,
   authorize("SUPER_ADMIN"),
   aclController.deleteACL
 );

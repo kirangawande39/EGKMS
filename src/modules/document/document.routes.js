@@ -19,10 +19,21 @@ const upload = require("../../middleware/upload.middleware");
 // accessControl(resource, action) contract used by Team routes.
 const accessControl = require("../permission/accessControl/accessControl.middleware");
 
+const {
+  documentCreateLimiter,
+  documentReadLimiter,
+  documentUpdateLimiter,
+  documentStatusLimiter,
+  documentArchiveLimiter,
+  documentRestoreLimiter,
+  documentDeleteLimiter,
+} = require("./document.rateLimiter"); 
+
 // Create
 router.post(
   "/",
   authenticate,
+  documentCreateLimiter,
   accessControl("DOCUMENT", "CREATE"),
   upload.single("file"),
   validate(createDocumentValidator),
@@ -33,6 +44,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+  documentReadLimiter,
   accessControl("DOCUMENT", "VIEW"),
   documentController.getDocuments
 );
@@ -40,6 +52,7 @@ router.get(
 router.get(
   "/:documentId/view",
   authenticate,
+  documentReadLimiter,
   accessControl("DOCUMENT", "VIEW"),
   documentController.viewDocument
 );
@@ -48,6 +61,7 @@ router.get(
 router.get(
   "/:documentId",
   authenticate,
+  documentReadLimiter,
   accessControl("DOCUMENT", "VIEW"),
   documentController.getDocumentById
 );
@@ -57,6 +71,7 @@ router.get(
 router.get(
   "/:documentId/versions",
   authenticate,
+  documentReadLimiter,
   accessControl("DOCUMENT", "VIEW"),
   documentController.getDocumentVersions
 );
@@ -65,6 +80,7 @@ router.get(
 router.patch(
   "/:documentId",
   authenticate,
+  documentUpdateLimiter,
   accessControl("DOCUMENT", "EDIT"),
   upload.single("file"),
   validate(updateDocumentValidator),
@@ -75,6 +91,7 @@ router.patch(
 router.patch(
   "/:documentId/status",
   authenticate,
+  documentStatusLimiter,
   accessControl("DOCUMENT", "EDIT"),
   validate(updateStatusValidator),
   documentController.updateDocumentStatus
@@ -84,6 +101,7 @@ router.patch(
 router.patch(
   "/:documentId/archive",
   authenticate,
+  documentArchiveLimiter,
   accessControl("DOCUMENT", "ARCHIVE"),
   documentController.archiveDocument
 );
@@ -92,6 +110,7 @@ router.patch(
 router.patch(
   "/:documentId/restore",
   authenticate,
+  documentRestoreLimiter,
   accessControl("DOCUMENT", "RESTORE"),
   documentController.restoreDocument
 );
@@ -100,6 +119,7 @@ router.patch(
 router.delete(
   "/:documentId",
   authenticate,
+  documentDeleteLimiter,
   accessControl("DOCUMENT", "DELETE"),
   documentController.deleteDocument
 );

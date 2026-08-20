@@ -10,7 +10,7 @@ const {
   updateRolePermissionStatusSchema,
 } = require("./rolePermission.validator");
 
-const {authenticate} = require(
+const { authenticate } = require(
   "../../../middleware/auth.middleware"
 );
 
@@ -22,12 +22,21 @@ const validate = require(
   "../../../middleware/validate.middleware"
 );
 
+const {
+  rolePermissionCreateLimiter,
+  rolePermissionReadLimiter,
+  rolePermissionUpdateLimiter,
+  rolePermissionStatusLimiter,
+  rolePermissionDeleteLimiter,
+} = require("./rolePermission.rateLimiter");
+
 const router = express.Router();
 
 
 router.post(
   "/",
   authenticate,
+  rolePermissionCreateLimiter,
   authorize("SUPER_ADMIN"),
   validate(createRolePermissionSchema),
   rolePermissionController.createRolePermission
@@ -39,6 +48,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+  rolePermissionReadLimiter,
   authorize("SUPER_ADMIN"),
   rolePermissionController.getRolePermissions
 );
@@ -49,6 +59,7 @@ router.get(
 router.get(
   "/:rolePermissionId",
   authenticate,
+  rolePermissionReadLimiter,
   authorize("SUPER_ADMIN"),
   rolePermissionController.getRolePermissionById
 );
@@ -59,6 +70,7 @@ router.get(
 router.patch(
   "/:rolePermissionId",
   authenticate,
+  rolePermissionUpdateLimiter,
   authorize("SUPER_ADMIN"),
   validate(updateRolePermissionSchema),
   rolePermissionController.updateRolePermission
@@ -70,6 +82,7 @@ router.patch(
 router.patch(
   "/:rolePermissionId/status",
   authenticate,
+  rolePermissionStatusLimiter,
   authorize("SUPER_ADMIN"),
   validate(updateRolePermissionStatusSchema),
   rolePermissionController.updateRolePermissionStatus
@@ -81,6 +94,7 @@ router.patch(
 router.delete(
   "/:rolePermissionId",
   authenticate,
+  rolePermissionDeleteLimiter,
   authorize("SUPER_ADMIN"),
   rolePermissionController.deleteRolePermission
 );

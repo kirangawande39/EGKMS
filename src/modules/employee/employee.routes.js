@@ -7,12 +7,20 @@ const {
     createEmployeeValidator
 } = require("./employee.validator");
 const employeeController = require("./employee.controller");
+const {
+    employeeCreateLimiter,
+    employeeReadLimiter,
+    employeeUpdateLimiter,
+    employeeStatusLimiter,
+    employeeDeleteLimiter,
+} = require("./employee.rateLimiter");
 
 
 // CREATE EMPLOYEE
 router.post(
     "/",
     authenticate,
+    employeeCreateLimiter,
     accessControl("EMPLOYEE", "CREATE"),
     validate(createEmployeeValidator),
     employeeController.createEmployee
@@ -22,6 +30,7 @@ router.post(
 router.get(
     "/",
     authenticate,
+    employeeReadLimiter,
     accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployees
 );
@@ -30,6 +39,7 @@ router.get(
 router.get(
     "/email/:email",
     authenticate,
+    employeeReadLimiter,
     accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployeeByEmail
 );
@@ -38,6 +48,7 @@ router.get(
 router.get(
     "/:employeeId",
     authenticate,
+    employeeReadLimiter,
     accessControl("EMPLOYEE", "VIEW"),
     employeeController.getEmployeeById
 );
@@ -46,6 +57,7 @@ router.get(
 router.patch(
     "/:employeeId",
     authenticate,
+    employeeUpdateLimiter,
     accessControl("EMPLOYEE", "EDIT"),
     employeeController.updateEmployee
 );
@@ -54,6 +66,7 @@ router.patch(
 router.patch(
     "/:employeeId/status",
     authenticate,
+    employeeStatusLimiter,
     accessControl("EMPLOYEE", "EDIT"),
     employeeController.updateEmployeeStatus
 );
@@ -62,6 +75,7 @@ router.patch(
 router.delete(
     "/:employeeId",
     authenticate,
+    employeeDeleteLimiter,
     accessControl("EMPLOYEE", "DELETE"),
     employeeController.deleteEmployee
 );

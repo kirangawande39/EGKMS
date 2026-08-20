@@ -20,6 +20,15 @@ const {
   assignReportingManagerValidator,
 } = require("./user.validator");
 
+const {
+  userReadLimiter,
+  userUpdateLimiter,
+  userStatusLimiter,
+  userPasswordResetLimiter,
+  reportingManagerLimiter,
+  userDeleteLimiter,
+} = require("./user.rateLimiter");
+
 // Controller
 const userController =
   require("./user.controller");
@@ -31,6 +40,7 @@ const userController =
 router.get(
   "/",
   authenticate,
+  userReadLimiter,
   authorize("SUPER_ADMIN"),
   userController.getUsers
 );
@@ -42,6 +52,7 @@ router.get(
 router.get(
   "/:userId",
   authenticate,
+  userReadLimiter,
   authorize("SUPER_ADMIN"),
   userController.getUserById
 );
@@ -53,6 +64,7 @@ router.get(
 router.patch(
   "/:userId",
   authenticate,
+  userUpdateLimiter,
   authorize("SUPER_ADMIN"),
   validate(updateUserValidator),
   userController.updateUser
@@ -65,6 +77,7 @@ router.patch(
 router.patch(
   "/:userId/status",
   authenticate,
+  userStatusLimiter,
   authorize("SUPER_ADMIN"),
   validate(
     updateUserAccountStatusValidator
@@ -79,6 +92,7 @@ router.patch(
 router.post(
   "/:userId/reset-password",
   authenticate,
+  userPasswordResetLimiter,
   authorize("SUPER_ADMIN"),
   validate(resetPasswordValidator),
   userController.resetPassword
@@ -91,6 +105,7 @@ router.post(
 router.patch(
   "/:userId/reporting-manager",
   authenticate,
+  reportingManagerLimiter,
   authorize("SUPER_ADMIN"),
   validate(
     assignReportingManagerValidator
@@ -105,6 +120,7 @@ router.patch(
 router.delete(
   "/:userId",
   authenticate,
+   userDeleteLimiter,
   authorize("SUPER_ADMIN"),
   userController.deleteUser
 );
