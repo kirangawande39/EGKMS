@@ -805,15 +805,21 @@ const resubmitDocument = async ({
   documentId,
   employeeId,
 }) => {
+  // ---------------------------------------------------
+  // 1. Validate Document ID
+  // ---------------------------------------------------
+
   if (!mongoose.Types.ObjectId.isValid(documentId)) {
     const error = new Error("Invalid document ID.");
     error.statusCode = 400;
     throw error;
   }
 
-  const document = await Document.findById(documentId);
+  // ---------------------------------------------------
+  // 2. Find Document
+  // ---------------------------------------------------
 
-  // console.log("Document:",document)
+  const document = await Document.findById(documentId);
 
   if (!document) {
     const error = new Error("Document not found.");
@@ -821,10 +827,10 @@ const resubmitDocument = async ({
     throw error;
   }
 
-  // console.log("document owner id :",document.owner)
-  // console.log("employeeId id :",employeeId)
+  // ---------------------------------------------------
+  // 3. Only Document Owner Can Resubmit
+  // ---------------------------------------------------
 
-  // Only the document owner can resubmit
   if (
     !document.owner ||
     document.owner.toString() !== employeeId.toString()
@@ -836,7 +842,10 @@ const resubmitDocument = async ({
     throw error;
   }
 
-  // Only revision documents can be resubmitted
+  // ---------------------------------------------------
+  // 4. Document Must Be in REVISION
+  // ---------------------------------------------------
+
   if (document.status !== "REVISION") {
     const error = new Error(
       "Only documents in REVISION status can be resubmitted."
@@ -844,6 +853,10 @@ const resubmitDocument = async ({
     error.statusCode = 400;
     throw error;
   }
+
+  // ---------------------------------------------------
+  // 5. Find Workflow
+  // ---------------------------------------------------
 
   const workflow = await Workflow.findOne({
     document: document._id,
@@ -866,7 +879,97 @@ const resubmitDocument = async ({
   }
 
   // ---------------------------------------------------
-  // Find the document's Team
+  // 6. Find Resubmitting Employee
+  // ---------------------------------------------------
+
+  const employee = await Employee.findById(employeeId).select(
+    "hierarchyLevel department team status"
+  );
+
+  if (!employee) {
+    const error = new Error("Employee not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (employee.status !== "ACTIVE") {
+    const error = new Error(
+      "Only active employees can resubmit documents."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // ---------------------------------------------------
+  // 7. Higher Authority Levels
+  // ---------------------------------------------------
+
+  const higherAuthorityLevels = [
+    "EXECUTIVE",
+    "GOVERNANCE",
+    "SUPER_ADMIN",
+  ];
+
+  const isHigherAuthority =
+    higherAuthorityLevels.includes(employee.hierarchyLevel);
+
+  // ---------------------------------------------------
+  // 8. Higher Authority Resubmission
+  // ---------------------------------------------------
+  //
+  // Higher authorities are NOT required to have a Team.
+  // Therefore Team / TeamLead lookup is skipped.
+  //
+  // Existing workflow.currentLevel/currentReviewer
+  // represents the next workflow destination.
+  //
+
+  if (isHigherAuthority) {
+    document.status = "SUBMITTED";
+
+    await document.save();
+
+    workflow.status = "PENDING_REVIEW";
+    workflow.lastAction = "SUBMITTED";
+    workflow.lastActionBy = employeeId;
+    workflow.submittedAt = new Date();
+    workflow.reviewedAt = null;
+    workflow.reminderCount = 0;
+    workflow.lastReminderAt = null;
+    workflow.escalatedAt = null;
+
+    await workflow.save();
+
+    // ---------------------------------------------------
+    // Audit Log
+    // ---------------------------------------------------
+
+    const user = await User.findOne({
+      employeeId,
+    });
+
+    await createAuditLog({
+      module: "WORKFLOW",
+      action: "WORKFLOW_RESUBMITTED",
+      actor: user?._id || null,
+      actorEmail: user?.email || null,
+      targetId: workflow._id,
+      targetType: "Workflow",
+      description:
+        "Document resubmitted for workflow review by higher authority.",
+      metadata: {
+        documentId: document._id,
+        currentLevel: workflow.currentLevel,
+        currentReviewer: workflow.currentReviewer,
+        resubmittedBy: employee.hierarchyLevel,
+      },
+    });
+
+    return workflow;
+  }
+
+  // ---------------------------------------------------
+  // 9. Team-Based Resubmission
   // ---------------------------------------------------
 
   if (!document.team) {
@@ -876,6 +979,10 @@ const resubmitDocument = async ({
     error.statusCode = 400;
     throw error;
   }
+
+  // ---------------------------------------------------
+  // 10. Find Active Team
+  // ---------------------------------------------------
 
   const team = await Team.findOne({
     _id: document.team,
@@ -890,6 +997,10 @@ const resubmitDocument = async ({
     throw error;
   }
 
+  // ---------------------------------------------------
+  // 11. Team Lead Required
+  // ---------------------------------------------------
+
   if (!team.teamLead) {
     const error = new Error(
       "Team Lead is not assigned to this team."
@@ -897,6 +1008,10 @@ const resubmitDocument = async ({
     error.statusCode = 404;
     throw error;
   }
+
+  // ---------------------------------------------------
+  // 12. Find Active Team Lead
+  // ---------------------------------------------------
 
   const teamLead = await Employee.findOne({
     _id: team.teamLead,
@@ -913,11 +1028,16 @@ const resubmitDocument = async ({
   }
 
   // ---------------------------------------------------
-  // Resubmit document
+  // 13. Resubmit Document
   // ---------------------------------------------------
 
   document.status = "SUBMITTED";
+
   await document.save();
+
+  // ---------------------------------------------------
+  // 14. Reset Workflow to Team Lead
+  // ---------------------------------------------------
 
   workflow.currentReviewer = teamLead._id;
   workflow.currentLevel = "TEAM_LEAD";
@@ -932,6 +1052,10 @@ const resubmitDocument = async ({
 
   await workflow.save();
 
+  // ---------------------------------------------------
+  // 15. Audit Log
+  // ---------------------------------------------------
+
   const user = await User.findOne({
     employeeId,
   });
@@ -943,11 +1067,13 @@ const resubmitDocument = async ({
     actorEmail: user?.email || null,
     targetId: workflow._id,
     targetType: "Workflow",
-    description: "Document resubmitted for workflow review.",
+    description:
+      "Document resubmitted for workflow review.",
     metadata: {
       documentId: document._id,
       currentLevel: workflow.currentLevel,
       currentReviewer: workflow.currentReviewer,
+      resubmittedBy: employee.hierarchyLevel,
     },
   });
 
