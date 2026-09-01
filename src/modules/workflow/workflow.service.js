@@ -202,13 +202,13 @@ const getPendingWorkflows = async ({ userId }) => {
   }
 
   // 2. Find linked active Employee
-const employeeId =
-  user.employeeId?._id || user.employeeId;
+  const employeeId =
+    user.employeeId?._id || user.employeeId;
 
-const employee = await Employee.findOne({
-  _id: employeeId,
-  status: "ACTIVE",
-});
+  const employee = await Employee.findOne({
+    _id: employeeId,
+    status: "ACTIVE",
+  });
 
   if (!employee) {
     const error = new Error("Active employee not found.");
@@ -912,23 +912,70 @@ const resubmitDocument = async ({
 
   const isHigherAuthority =
     higherAuthorityLevels.includes(employee.hierarchyLevel);
-
   // ---------------------------------------------------
   // 8. Higher Authority Resubmission
   // ---------------------------------------------------
   //
   // Higher authorities are NOT required to have a Team.
-  // Therefore Team / TeamLead lookup is skipped.
+  // Their workflow is routed to the next higher authority.
   //
-  // Existing workflow.currentLevel/currentReviewer
-  // represents the next workflow destination.
-  //
+  // EXECUTIVE  -> GOVERNANCE
+  // GOVERNANCE -> No next reviewer (final authority)
+  // ---------------------------------------------------
 
   if (isHigherAuthority) {
+    let nextReviewer = null;
+    let nextLevel = null;
+
+    // ---------------------------------------------------
+    // Executive -> Governance
+    // ---------------------------------------------------
+
+    if (employee.hierarchyLevel === "EXECUTIVE") {
+      nextReviewer = await Employee.findOne({
+        hierarchyLevel: "GOVERNANCE",
+        status: "ACTIVE",
+      }).select("_id hierarchyLevel");
+
+      if (!nextReviewer) {
+        const error = new Error(
+          "Active Governance reviewer not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      nextLevel = "GOVERNANCE";
+    }
+
+    // ---------------------------------------------------
+    // Governance is the final authority
+    // ---------------------------------------------------
+
+    else if (employee.hierarchyLevel === "GOVERNANCE") {
+      nextReviewer = null;
+      nextLevel = "GOVERNANCE";
+    }
+
+    // ---------------------------------------------------
+    // SUPER_ADMIN
+    // ---------------------------------------------------
+
+    else if (employee.hierarchyLevel === "SUPER_ADMIN") {
+      nextReviewer = null;
+      nextLevel = "SUPER_ADMIN";
+    }
+
+    // ---------------------------------------------------
+    // Resubmit Document
+    // ---------------------------------------------------
+
     document.status = "SUBMITTED";
 
     await document.save();
 
+    workflow.currentReviewer = nextReviewer?._id || null;
+    workflow.currentLevel = nextLevel;
     workflow.status = "PENDING_REVIEW";
     workflow.lastAction = "SUBMITTED";
     workflow.lastActionBy = employeeId;
