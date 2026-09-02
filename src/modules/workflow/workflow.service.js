@@ -126,44 +126,129 @@ const submitDocument = async ({ documentId, user }) => {
   }
 
   // 9. Find next authority in the hierarchy
-  // const nextReviewer = await Employee.findOne({
-  //   hierarchyLevel: nextLevel,
-  //   status: "ACTIVE",
-  // });
 
-  // 9. Find next authority in the same organizational scope
-  const reviewerQuery = {
-    hierarchyLevel: nextLevel,
-    status: "ACTIVE",
-  };
+let nextReviewer = null;
 
-  // Employee / Intern → their own Team Lead
-  if (nextLevel === "TEAM_LEAD") {
-    reviewerQuery.team = employee.team?._id || employee.team;
-  }
+const reviewerQuery = {
+  hierarchyLevel: nextLevel,
+  status: "ACTIVE",
+};
 
-  
+// Employee / Intern → Team Lead
+if (nextLevel === "TEAM_LEAD") {
+  const teamId =
+    employee.team?._id || employee.team;
 
-  // Team Lead → their own Team Manager
-  if (nextLevel === "MANAGER") {
-    reviewerQuery.team = employee.team?._id || employee.team;
-  }
-
-  // Manager → Department Head of the same department
-  if (nextLevel === "DEPARTMENT_HEAD") {
-    reviewerQuery.department =
-      employee.department?._id || employee.department;
-  }
-
-  const nextReviewer = await Employee.findOne(reviewerQuery);
-
-  if (!nextReviewer) {
+  if (!teamId) {
     const error = new Error(
-      `No active ${nextLevel} found for workflow review.`
+      "Employee is not assigned to a team."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  reviewerQuery.team = teamId;
+
+  nextReviewer = await Employee.findOne(reviewerQuery);
+}
+
+// Team Lead → Manager
+else if (nextLevel === "MANAGER") {
+  const reportingManagerId =
+    employee.reportingManager?._id ||
+    employee.reportingManager;
+
+  if (!reportingManagerId) {
+    const error = new Error(
+      "Team Lead has no reporting manager assigned."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  nextReviewer = await Employee.findOne({
+    _id: reportingManagerId,
+    hierarchyLevel: "MANAGER",
+    status: "ACTIVE",
+  });
+}
+
+// Manager → Department Head
+else if (nextLevel === "DEPARTMENT_HEAD") {
+  const departmentId =
+    employee.department?._id ||
+    employee.department;
+
+  if (!departmentId) {
+    const error = new Error(
+      "Manager is not assigned to a department."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const department = await Department.findById(
+    departmentId
+  ).select("head");
+
+  if (!department) {
+    const error = new Error("Department not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!department.head) {
+    const error = new Error(
+      "No Department Head is assigned to this department."
     );
     error.statusCode = 404;
     throw error;
   }
+
+  nextReviewer = await Employee.findOne({
+    _id: department.head,
+    hierarchyLevel: "DEPARTMENT_HEAD",
+    status: "ACTIVE",
+  });
+}
+
+// Department Head → Executive
+else if (nextLevel === "EXECUTIVE") {
+  const departmentId =
+    employee.department?._id ||
+    employee.department;
+
+  if (!departmentId) {
+    const error = new Error(
+      "Department Head is not assigned to a department."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  nextReviewer = await Employee.findOne({
+    department: departmentId,
+    hierarchyLevel: "EXECUTIVE",
+    status: "ACTIVE",
+  });
+}
+
+// Executive → Governance
+else if (nextLevel === "GOVERNANCE") {
+  nextReviewer = await Employee.findOne({
+    hierarchyLevel: "GOVERNANCE",
+    status: "ACTIVE",
+  });
+}
+
+// Reviewer not found
+if (!nextReviewer) {
+  const error = new Error(
+    `No active ${nextLevel} found for workflow review.`
+  );
+  error.statusCode = 404;
+  throw error;
+}
 
   // 10. Create workflow
   const workflow = await Workflow.create({
