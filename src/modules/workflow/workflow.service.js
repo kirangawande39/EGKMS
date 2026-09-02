@@ -126,24 +126,36 @@ const submitDocument = async ({ documentId, user }) => {
   }
 
   // 9. Find next authority in the hierarchy
-  const nextReviewer = await Employee.findOne({
-    hierarchyLevel: nextLevel,
-    status: "ACTIVE",
-  });
-
-
-  // const reviewerQuery = {
+  // const nextReviewer = await Employee.findOne({
   //   hierarchyLevel: nextLevel,
   //   status: "ACTIVE",
-  // };
+  // });
 
-  // if (nextLevel === "TEAM_LEAD") {
-  //   reviewerQuery.team = employee.team?._id || employee.team;
-  // }
+  // 9. Find next authority in the same organizational scope
+  const reviewerQuery = {
+    hierarchyLevel: nextLevel,
+    status: "ACTIVE",
+  };
 
-  // const nextReviewer = await Employee.findOne(
-  //   reviewerQuery
-  // );
+  // Employee / Intern → their own Team Lead
+  if (nextLevel === "TEAM_LEAD") {
+    reviewerQuery.team = employee.team?._id || employee.team;
+  }
+
+  
+
+  // Team Lead → their own Team Manager
+  if (nextLevel === "MANAGER") {
+    reviewerQuery.team = employee.team?._id || employee.team;
+  }
+
+  // Manager → Department Head of the same department
+  if (nextLevel === "DEPARTMENT_HEAD") {
+    reviewerQuery.department =
+      employee.department?._id || employee.department;
+  }
+
+  const nextReviewer = await Employee.findOne(reviewerQuery);
 
   if (!nextReviewer) {
     const error = new Error(
