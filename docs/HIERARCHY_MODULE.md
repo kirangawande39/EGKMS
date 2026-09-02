@@ -4,17 +4,17 @@
 
 The **Hierarchy Module** manages the predefined organizational hierarchy levels used by the EGKMS system.
 
-For the current implementation, this module is being used as a **read-only configuration module**.
+For the current implementation, this module is used as a **read-only configuration module**.
 
-The main purpose is to provide hierarchy levels to the frontend when creating an Employee.
+The primary purpose of this module is to provide the available hierarchy levels to the frontend when creating an Employee.
 
 ### Current Scope
 
 The module currently supports:
 
-- Fetching all active hierarchy levels
-- Returning hierarchy levels in the correct order
-- Providing only the fields required by the Employee Create form
+* Fetching all active hierarchy levels
+* Returning hierarchy levels in the correct organizational order
+* Providing only the fields required by the Employee Create form
 
 ### Current Runtime Usage
 
@@ -34,21 +34,60 @@ Show Hierarchy Dropdown
 
 # 2. Hierarchy Levels
 
-The system uses the following hierarchy levels:
+EGKMS uses the following **8 employee hierarchy levels**:
 
-| Level | Hierarchy |
-|---:|---|
-| 1 | SUPER_ADMIN |
-| 2 | GOVERNANCE |
-| 3 | EXECUTIVE |
-| 4 | DEPARTMENT |
-| 5 | MANAGER |
-| 6 | TEAM_LEAD |
-| 7 | TEAM |
-| 8 | EMPLOYEE |
-| 9 | INTERN |
+| Level | Hierarchy       |
+| ----: | --------------- |
+|     1 | SUPER_ADMIN     |
+|     2 | GOVERNANCE      |
+|     3 | EXECUTIVE       |
+|     4 | DEPARTMENT_HEAD |
+|     5 | MANAGER         |
+|     6 | TEAM_LEAD       |
+|     7 | EMPLOYEE        |
+|     8 | INTERN          |
 
-These values are consistent with the `hierarchyLevel` enum used by the Employee model.
+These values represent the employee's actual organizational hierarchy.
+
+### Important
+
+`DEPARTMENT` and `TEAM` are **not employee hierarchy levels**.
+
+They are organizational entities:
+
+```text
+Employee
+   ├── department → Department
+   ├── team → Team
+   └── reportingManager → Employee
+```
+
+Therefore, the following values must **not** be included in the Employee `hierarchyLevel`:
+
+```text
+DEPARTMENT
+TEAM
+```
+
+The valid Employee hierarchy is:
+
+```text
+SUPER_ADMIN
+    ↓
+GOVERNANCE
+    ↓
+EXECUTIVE
+    ↓
+DEPARTMENT_HEAD
+    ↓
+MANAGER
+    ↓
+TEAM_LEAD
+    ↓
+EMPLOYEE
+    ↓
+INTERN
+```
 
 ---
 
@@ -67,7 +106,7 @@ The Hierarchy document contains the following fields:
 }
 ```
 
-For the current GET functionality, the frontend only needs:
+For the current GET functionality, the frontend only requires:
 
 ```text
 _id
@@ -75,7 +114,7 @@ hierarchyLevel
 level
 ```
 
-The other fields are not required for the Employee Create hierarchy dropdown.
+The remaining fields are not required for the Employee Create hierarchy dropdown.
 
 ---
 
@@ -101,9 +140,9 @@ Only an authenticated user can access the hierarchy list.
 
 ## Purpose
 
-This API returns the active hierarchy levels from the database.
+This API returns all active hierarchy levels from the database.
 
-The result is sorted according to the hierarchy level order.
+The records are sorted according to the predefined hierarchy order.
 
 ```text
 SUPER_ADMIN
@@ -112,13 +151,11 @@ GOVERNANCE
     ↓
 EXECUTIVE
     ↓
-DEPARTMENT
+DEPARTMENT_HEAD
     ↓
 MANAGER
     ↓
 TEAM_LEAD
-    ↓
-TEAM
     ↓
 EMPLOYEE
     ↓
@@ -129,27 +166,25 @@ INTERN
 
 # 5. Service Implementation
 
-The current service implementation intentionally returns only the required fields.
+The service intentionally returns only the fields required by the Employee Create form.
 
 ```js
 const getAllHierarchy = async () => {
-
   const hierarchy = await Hierarchy.find(
     { status: "active" },
     {
       hierarchyLevel: 1,
-      level: 1
+      level: 1,
     }
-  )
-    .sort({ level: 1 });
+  ).sort({ level: 1 });
 
   return hierarchy;
 };
 ```
 
-### Why only these fields?
+### Why Only These Fields?
 
-The Employee Create form only needs:
+The Employee Create form requires:
 
 ```text
 _id
@@ -157,16 +192,15 @@ hierarchyLevel
 level
 ```
 
-Therefore, there is no need to populate:
+Therefore, the API does not need to return unnecessary metadata such as:
 
 ```text
 parentId
 createdBy
+description
 ```
 
-or return unnecessary metadata.
-
-This keeps the API response smaller and simpler for the frontend.
+This keeps the API response simple and lightweight.
 
 ---
 
@@ -192,35 +226,68 @@ Example:
       "_id": "6c...",
       "hierarchyLevel": "EXECUTIVE",
       "level": 3
+    },
+    {
+      "_id": "6d...",
+      "hierarchyLevel": "DEPARTMENT_HEAD",
+      "level": 4
+    },
+    {
+      "_id": "6e...",
+      "hierarchyLevel": "MANAGER",
+      "level": 5
+    },
+    {
+      "_id": "6f...",
+      "hierarchyLevel": "TEAM_LEAD",
+      "level": 6
+    },
+    {
+      "_id": "6g...",
+      "hierarchyLevel": "EMPLOYEE",
+      "level": 7
+    },
+    {
+      "_id": "6h...",
+      "hierarchyLevel": "INTERN",
+      "level": 8
     }
   ]
 }
 ```
 
-The complete response will contain all active hierarchy levels.
+The complete response contains all active hierarchy levels.
 
 ---
 
 # 7. Why `status: "active"` Is Used
 
-The database contains:
+The Hierarchy collection contains active and inactive configuration records.
 
 ```text
 active
 inactive
 ```
 
-hierarchy statuses.
-
-The GET API filters only:
+The GET API filters only active records:
 
 ```js
 { status: "active" }
 ```
 
-This means inactive hierarchy levels will not appear in the Employee Create form.
+This ensures that inactive hierarchy levels are not displayed in the Employee Create form.
 
-This prevents the frontend from showing hierarchy levels that are not currently active.
+### Result
+
+```text
+Database
+   ↓
+Active Hierarchy Records
+   ↓
+GET /hierarchy
+   ↓
+Employee Create Dropdown
+```
 
 ---
 
@@ -232,23 +299,22 @@ The API uses:
 .sort({ level: 1 })
 ```
 
-This sorts the hierarchy from the lowest numeric level to the highest.
+This sorts the hierarchy records by their numeric `level` value.
 
-Example:
+The expected order is:
 
 ```text
 1 → SUPER_ADMIN
 2 → GOVERNANCE
 3 → EXECUTIVE
-4 → DEPARTMENT
+4 → DEPARTMENT_HEAD
 5 → MANAGER
 6 → TEAM_LEAD
-7 → TEAM
-8 → EMPLOYEE
-9 → INTERN
+7 → EMPLOYEE
+8 → INTERN
 ```
 
-This ensures that the frontend receives the hierarchy in the correct organizational order.
+This ensures that the frontend receives the hierarchy in a consistent organizational order.
 
 ---
 
@@ -264,7 +330,7 @@ router.get(
 );
 ```
 
-### Flow
+### Request Flow
 
 ```text
 GET /hierarchy
@@ -294,17 +360,13 @@ The controller calls the hierarchy service:
 
 ```js
 exports.getAllHierarchy = async (req, res, next) => {
-
   try {
-
-    const hierarchy =
-      await hierarchyService.getAllHierarchy();
+    const hierarchy = await hierarchyService.getAllHierarchy();
 
     res.status(200).json({
       success: true,
-      data: hierarchy
+      data: hierarchy,
     });
-
   } catch (error) {
     next(error);
   }
@@ -327,41 +389,93 @@ GET /hierarchy
 
 and use the response to populate the Employee Create hierarchy dropdown.
 
-Example dropdown:
+### Example Dropdown
 
 ```text
 SUPER_ADMIN
 GOVERNANCE
 EXECUTIVE
-DEPARTMENT
+DEPARTMENT_HEAD
 MANAGER
 TEAM_LEAD
-TEAM
 EMPLOYEE
 INTERN
 ```
 
-When the user selects a hierarchy, the frontend can use the returned `hierarchyLevel` value according to the Employee API requirements.
+When the user selects a hierarchy level, the frontend sends the corresponding `hierarchyLevel` value to the Employee API.
+
+Example:
+
+```json
+{
+  "hierarchyLevel": "TEAM_LEAD"
+}
+```
+
+The frontend should not use `DEPARTMENT` or `TEAM` as Employee hierarchy values.
 
 ---
 
 # 12. Fields Used by Frontend
 
-| Field | Required | Purpose |
-|---|---|---|
-| `_id` | Yes | Database reference |
-| `hierarchyLevel` | Yes | Actual hierarchy value |
-| `level` | Yes | Display/order hierarchy |
-| `parentId` | No | Not required for current dropdown |
-| `description` | No | Not required |
-| `status` | No | Used internally for filtering |
-| `createdBy` | No | Not required |
-| `createdAt` | No | Not required |
-| `updatedAt` | No | Not required |
+| Field            | Required | Purpose                           |
+| ---------------- | -------- | --------------------------------- |
+| `_id`            | Yes      | Database reference                |
+| `hierarchyLevel` | Yes      | Actual employee hierarchy value   |
+| `level`          | Yes      | Organizational ordering           |
+| `parentId`       | No       | Not required for current dropdown |
+| `description`    | No       | Not required                      |
+| `status`         | No       | Used internally for filtering     |
+| `createdBy`      | No       | Not required                      |
+| `createdAt`      | No       | Not required                      |
+| `updatedAt`      | No       | Not required                      |
 
 ---
 
-# 13. Current Module Scope
+# 13. Relationship with Department and Team
+
+Department and Team are separate organizational entities and are not hierarchy levels.
+
+The employee structure is:
+
+```text
+Employee
+   │
+   ├── hierarchyLevel
+   │
+   ├── department → Department
+   │
+   ├── team → Team
+   │
+   └── reportingManager → Employee
+```
+
+For example:
+
+```text
+Hierarchy Level:
+TEAM_LEAD
+
+Department:
+Technology
+
+Team:
+Backend Development
+```
+
+Here:
+
+```text
+TEAM_LEAD = Employee hierarchy
+Technology = Department
+Backend Development = Team
+```
+
+They represent different concepts and must not be mixed.
+
+---
+
+# 14. Current Module Scope
 
 ### Currently Used
 
@@ -369,11 +483,11 @@ When the user selects a hierarchy, the frontend can use the returned `hierarchyL
 GET /hierarchy
 ```
 
-This is the only hierarchy operation currently used by the application.
+This is the only hierarchy operation currently required by the application.
 
 ### Currently Not Used
 
-The following operations exist in the module code but are **not part of the current runtime requirement**:
+The following operations are not part of the current runtime requirement:
 
 ```text
 POST   /hierarchy
@@ -382,13 +496,14 @@ DELETE /hierarchy/:id
 GET    /hierarchy/:id
 ```
 
-These operations are currently commented out / disabled and should **not be considered active application functionality**.
+
+These operations are currently commented out / disabled and should **not** be considered active application functionality.
 
 The hierarchy data is treated as predefined configuration data.
 
 ---
 
-# 14. Important Implementation Rule
+# 15. Important Implementation Rule
 
 Do not add unnecessary CRUD functionality to the current Employee workflow.
 
@@ -402,13 +517,54 @@ GET active hierarchy levels
 Employee Create Form
        ↓
 Hierarchy Dropdown
+       ↓
+Employee API
 ```
 
-The frontend should not maintain a hardcoded hierarchy list if the list is already available from the database.
+The frontend should not maintain a hardcoded hierarchy list if the hierarchy data is already available from the database.
+
+The database remains the source of truth for the available hierarchy levels.
 
 ---
 
-# 15. Testing in Postman
+# 16. Employee Hierarchy Validation
+
+The Employee module should validate hierarchy levels against the same set of values:
+
+```js
+const hierarchyLevels = [
+  "SUPER_ADMIN",
+  "GOVERNANCE",
+  "EXECUTIVE",
+  "DEPARTMENT_HEAD",
+  "MANAGER",
+  "TEAM_LEAD",
+  "EMPLOYEE",
+  "INTERN",
+];
+```
+
+The Employee `hierarchyLevel` field should use these values only.
+
+```text
+Valid:
+SUPER_ADMIN
+GOVERNANCE
+EXECUTIVE
+DEPARTMENT_HEAD
+MANAGER
+TEAM_LEAD
+EMPLOYEE
+INTERN
+
+Invalid as hierarchyLevel:
+DEPARTMENT
+TEAM
+```
+
+---
+
+# 17. Testing in Postman
 
 ### Request
 
@@ -416,7 +572,7 @@ The frontend should not maintain a hardcoded hierarchy list if the list is alrea
 GET http://localhost:5000/<your-base-path>/hierarchy
 ```
 
-Authentication:
+### Authentication
 
 ```text
 Required
@@ -426,31 +582,82 @@ Required
 
 The response should:
 
-- Return `success: true`
-- Return only active hierarchy records
-- Return `_id`
-- Return `hierarchyLevel`
-- Return `level`
-- Return records sorted by `level`
-- Not populate unnecessary `parentId` or `createdBy` data
+* Return `success: true`
+* Return only active hierarchy records
+* Return `_id`
+* Return `hierarchyLevel`
+* Return `level`
+* Return records sorted by `level`
+* Return only the required hierarchy fields
+* Not populate unnecessary `parentId` or `createdBy` data
+* Contain only the 8 valid Employee hierarchy levels
+
+Expected hierarchy:
+
+```text
+1 → SUPER_ADMIN
+2 → GOVERNANCE
+3 → EXECUTIVE
+4 → DEPARTMENT_HEAD
+5 → MANAGER
+6 → TEAM_LEAD
+7 → EMPLOYEE
+8 → INTERN
+```
 
 ---
 
-# 16. Module Status
+# 18. Module Status
 
 ```text
 Hierarchy Module
 │
 ├── Database Configuration       ✅
-├── Hierarchy Records             ✅
-├── GET All Hierarchy             ✅ ACTIVE
+├── Hierarchy Records            ✅
+├── GET All Hierarchy            ✅ ACTIVE
 │
-├── GET Single Hierarchy          ⏸ NOT USED
-├── Create Hierarchy              ⏸ NOT USED
-├── Update Hierarchy              ⏸ NOT USED
-└── Delete Hierarchy              ⏸ NOT USED
+├── GET Single Hierarchy         ⏸ NOT USED
+├── Create Hierarchy             ⏸ NOT USED
+├── Update Hierarchy             ⏸ NOT USED
+└── Delete Hierarchy             ⏸ NOT USED
 ```
 
 ### Current Purpose
 
-**Provide active hierarchy levels to the Employee Create form through a GET API.**
+**Provide active employee hierarchy levels to the Employee Create form through a GET API.**
+
+---
+
+# 19. Final EGKMS Hierarchy Reference
+
+The final Employee hierarchy used by EGKMS is:
+
+```text
+SUPER_ADMIN
+    ↓
+GOVERNANCE
+    ↓
+EXECUTIVE
+    ↓
+DEPARTMENT_HEAD
+    ↓
+MANAGER
+    ↓
+TEAM_LEAD
+    ↓
+EMPLOYEE
+    ↓
+INTERN
+```
+
+Organizational entities remain separate:
+
+```text
+Department
+    ↓
+Team
+    ↓
+Employee
+```
+
+Therefore, `DEPARTMENT` and `TEAM` should not be stored as Employee `hierarchyLevel` values.

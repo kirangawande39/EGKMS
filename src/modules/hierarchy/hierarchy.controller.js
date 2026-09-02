@@ -29,14 +29,11 @@ exports.createHierarchy = async(req,res,next)=>{
 
 
 // Get All
-
 exports.getAllHierarchy = async(req,res,next)=>{
-
     try{
 
         const hierarchy =
         await hierarchyService.getAllHierarchy();
-
 
         res.status(200).json({
             success:true,

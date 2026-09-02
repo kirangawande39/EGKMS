@@ -905,33 +905,68 @@ const resubmitDocument = async ({
   // ---------------------------------------------------
 
   const higherAuthorityLevels = [
+    "MANAGER",
+    "DEPARTMENT_HEAD",
     "EXECUTIVE",
     "GOVERNANCE",
     "SUPER_ADMIN",
   ];
 
+
   const isHigherAuthority =
     higherAuthorityLevels.includes(employee.hierarchyLevel);
+
   // ---------------------------------------------------
   // 8. Higher Authority Resubmission
-  // ---------------------------------------------------
-  //
-  // Higher authorities are NOT required to have a Team.
-  // Their workflow is routed to the next higher authority.
-  //
-  // EXECUTIVE  -> GOVERNANCE
-  // GOVERNANCE -> No next reviewer (final authority)
   // ---------------------------------------------------
 
   if (isHigherAuthority) {
     let nextReviewer = null;
     let nextLevel = null;
 
+    if (employee.hierarchyLevel === "MANAGER") {
+      nextReviewer = await Employee.findOne({
+        hierarchyLevel: "DEPARTMENT_HEAD",
+        status: "ACTIVE",
+      }).select("_id hierarchyLevel");
+
+      if (!nextReviewer) {
+        const error = new Error(
+          "Active Department Head reviewer not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      nextLevel = "DEPARTMENT_HEAD";
+    }
+
+    // ---------------------------------------------------
+    // Department Head -> Executive
+    // ---------------------------------------------------
+
+    if (employee.hierarchyLevel === "DEPARTMENT_HEAD") {
+      nextReviewer = await Employee.findOne({
+        hierarchyLevel: "EXECUTIVE",
+        status: "ACTIVE",
+      }).select("_id hierarchyLevel");
+
+      if (!nextReviewer) {
+        const error = new Error(
+          "Active Executive reviewer not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      nextLevel = "EXECUTIVE";
+    }
+
     // ---------------------------------------------------
     // Executive -> Governance
     // ---------------------------------------------------
 
-    if (employee.hierarchyLevel === "EXECUTIVE") {
+    else if (employee.hierarchyLevel === "EXECUTIVE") {
       nextReviewer = await Employee.findOne({
         hierarchyLevel: "GOVERNANCE",
         status: "ACTIVE",
@@ -949,7 +984,7 @@ const resubmitDocument = async ({
     }
 
     // ---------------------------------------------------
-    // Governance is the final authority
+    // Governance -> Final Authority
     // ---------------------------------------------------
 
     else if (employee.hierarchyLevel === "GOVERNANCE") {
@@ -958,7 +993,7 @@ const resubmitDocument = async ({
     }
 
     // ---------------------------------------------------
-    // SUPER_ADMIN
+    // Super Admin -> Final Authority
     // ---------------------------------------------------
 
     else if (employee.hierarchyLevel === "SUPER_ADMIN") {
@@ -1014,7 +1049,6 @@ const resubmitDocument = async ({
 
     return workflow;
   }
-
   // ---------------------------------------------------
   // 9. Team-Based Resubmission
   // ---------------------------------------------------
