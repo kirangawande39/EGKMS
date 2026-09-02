@@ -3,14 +3,14 @@ const mongoose = require("mongoose");
 
 
 // Allowed hierarchy levels
+// Allowed hierarchy levels
 const hierarchyLevels = [
   "SUPER_ADMIN",
   "GOVERNANCE",
   "EXECUTIVE",
-  "DEPARTMENT",
+  "DEPARTMENT_HEAD",
   "MANAGER",
   "TEAM_LEAD",
-  "TEAM",
   "EMPLOYEE",
   "INTERN",
 ];

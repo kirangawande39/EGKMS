@@ -34,7 +34,7 @@ const employeeSchema = new mongoose.Schema(
         "Please enter a valid email address",
       ],
     },
-    
+
     hierarchyLevel: {
       type: String,
       required: [true, "Hierarchy level is required"],
@@ -43,10 +43,9 @@ const employeeSchema = new mongoose.Schema(
           "SUPER_ADMIN",
           "GOVERNANCE",
           "EXECUTIVE",
-          "DEPARTMENT",
+          "DEPARTMENT_HEAD",
           "MANAGER",
           "TEAM_LEAD",
-          "TEAM",
           "EMPLOYEE",
           "INTERN",
         ],

@@ -133,7 +133,7 @@ passport.use(
         // Attach employee information
         user.employeeId = employee;
 
-        console.log("User during Login:",user)
+        // console.log("User during Login:",user)
         
         
         return done(null, user);

@@ -10,20 +10,19 @@ const hierarchySchema = new mongoose.Schema(
                 "SUPER_ADMIN",
                 "GOVERNANCE",
                 "EXECUTIVE",
-                "DEPARTMENT",
+                "DEPARTMENT_HEAD",
                 "MANAGER",
                 "TEAM_LEAD",
-                "TEAM",
                 "EMPLOYEE",
                 "INTERN",
             ],
-            unique:true
+            unique: true,
         },
 
         level: {
             type: Number,
             required: true,
-            unique:true
+            unique: true
         },
 
 
