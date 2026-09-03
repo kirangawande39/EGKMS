@@ -179,8 +179,7 @@ const getACLs = async (filters = {}) => {
   const query = {};
 
   if (filters.hierarchyLevel) {
-    query.hierarchyLevel =
-      filters.hierarchyLevel;
+    query.hierarchyLevel = filters.hierarchyLevel;
   }
 
   if (filters.effect) {
@@ -205,6 +204,32 @@ const getACLs = async (filters = {}) => {
 
   if (filters.employee) {
     query.employee = filters.employee;
+  }
+
+  // ACL Scope Filter
+  if (filters.scope) {
+    switch (filters.scope) {
+      case "GLOBAL":
+        query.department = null;
+        query.team = null;
+        query.employee = null;
+        break;
+
+      case "DEPARTMENT":
+        query.department = { $ne: null };
+        query.team = null;
+        query.employee = null;
+        break;
+
+      case "TEAM":
+        query.team = { $ne: null };
+        query.employee = null;
+        break;
+
+      case "EMPLOYEE":
+        query.employee = { $ne: null };
+        break;
+    }
   }
 
   return ACL.find(query)
