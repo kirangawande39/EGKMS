@@ -9,10 +9,16 @@ dns.setServers([
 ]);
 
 
+
+
+
 require("dotenv").config();
 
 
 const app = require('./app');
+
+
+
 
 // console.log(process.env.MONGO_URI);
 const connectDB = require('./config/db')

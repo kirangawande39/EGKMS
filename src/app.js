@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require("path");
 const routes = require('./routes')
 const passport = require("./config/passport");
 const cookieParser = require("cookie-parser");
@@ -16,10 +17,17 @@ app.use(
   })
 );
 
+
 app.use(cookieParser());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  "/images",
+  express.static(path.join(__dirname, "public/images"))
+);
+
 
 
 app.use(passport.initialize());
