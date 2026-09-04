@@ -2,17 +2,19 @@ const {
   auditContext,
 } = require("../utils/auditContext");
 
-const auditContextMiddleware = (req, res, next) => {
-  console.log("========== IP DEBUG ==========");
-  console.log("req.ip:", req.ip);
-  console.log("req.socket.remoteAddress:", req.socket.remoteAddress);
-  console.log("x-forwarded-for:", req.headers["x-forwarded-for"]);
-  console.log("x-real-ip:", req.headers["x-real-ip"]);
-  console.log("host:", req.headers.host);
-  console.log("==============================");
+const getClientIp = (req) => {
+  const forwardedFor = req.headers["x-forwarded-for"];
 
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return req.socket.remoteAddress || null;
+};
+
+const auditContextMiddleware = (req, res, next) => {
   const context = {
-    ipAddress: req.ip,
+    ipAddress: getClientIp(req),
     userAgent: req.get("user-agent"),
   };
 

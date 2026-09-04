@@ -12,7 +12,6 @@ const createAuditLog = async ({
   metadata = {},
 }) => {
   try {
-    // Get request context
     const context = getAuditContext();
 
     const ipAddress = context?.ipAddress || null;
@@ -27,12 +26,10 @@ const createAuditLog = async ({
       targetType,
       description,
       metadata,
-
       ipAddress,
       userAgent,
     });
   } catch (error) {
-    // Audit failure should not break the main business operation.
     console.error("AUDIT LOG ERROR:", error.message);
 
     return null;
