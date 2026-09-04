@@ -5,7 +5,12 @@ const path = require("path");
 const routes = require('./routes')
 const passport = require("./config/passport");
 const cookieParser = require("cookie-parser");
-const errorMiddleware=require('./middleware/error.middleware')
+const errorMiddleware=require('./middleware/error.middleware');
+
+const auditContextMiddleware = require("./middleware/auditContext.middleware")
+
+
+
 
 
 const app = express();
@@ -18,6 +23,7 @@ app.use(
 );
 
 
+app.use(auditContextMiddleware);
 app.use(cookieParser());
 app.use(helmet());
 app.use(express.json());

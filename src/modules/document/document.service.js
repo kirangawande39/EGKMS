@@ -7,6 +7,8 @@ const Team = require("../team/team.model");
 const User = require("../auth/auth.model");
 const DocumentVersion = require("./documentVersion.model");
 const { createAuditLog } = require("../audit/audit.service");
+
+
 const getStatusCode = (error, fallback = 400) => {
   error.statusCode = error.statusCode || fallback;
   return error;
@@ -306,9 +308,9 @@ const updateDocument = async ({
   await createAuditLog({
     module: "DOCUMENT",
     action: "VERSION_CREATED",
-    actor: user._id,
-    actorEmail: user.email,
-    targetId: document._id,
+    actor: user?._id,
+    actorEmail: user?.email,
+    targetId: document?._id,
     targetType: "Document",
     description: "New document version created.",
     metadata: {
